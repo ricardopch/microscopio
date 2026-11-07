@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Microscopio Móvil</title>
+<meta name="description" content="Identifica las cámaras del móvil y usa la mejor como microscopio con enfoque y aumento automáticos.">
+<meta name="theme-color" content="#0a0e10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Microscopio">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Instrumento de laboratorio: diagnóstico en columna estrecha y visor a pantalla completa con lecturas monoespaciadas. Ámbar de lámpara halógena como único acento. */
+:root{
+  --ink:#0a0e10; --panel:#11181b; --panel-2:#162024; --line:#26343b;
+  --text:#e5ece9; --muted:#8d9da2;
+  --lamp:#ffb547; --lamp-ink:#241703;
+  --ok:#6fd69a; --warn:#ff9b6a;
+  --f-display:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--ink);color:var(--text)}
+body{font:16px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body.in-scope{overflow:hidden}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+
+/* ---------- Diagnóstico ---------- */
+.wrap{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:28px;
+  padding-block:calc(env(safe-area-inset-top,0px) + 28px) calc(env(safe-area-inset-bottom,0px) + 40px);
+  padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{width:54px;height:54px;flex:none;color:var(--lamp)}
+.eyebrow{margin:0;font:600 .78rem/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--lamp)}
+h1{margin:.25rem 0 0;font:600 2.5rem/1 var(--f-display);letter-spacing:.005em;text-wrap:balance}
+.lead{margin:0;color:var(--muted);font-size:1.06rem;max-width:60ch}
+.step{display:flex;flex-direction:column;gap:14px;padding-top:24px;border-top:1px solid var(--line)}
+.step-head{display:flex;align-items:center;gap:12px}
+.step-n{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--lamp);color:var(--lamp);display:grid;place-items:center;font:500 .9rem/1 var(--f-mono)}
+h2{margin:0;font:600 1.55rem/1.15 var(--f-display);text-wrap:balance}
+.step-text,.fine{margin:0;color:var(--muted);max-width:62ch}
+.fine{font-size:.9rem}
+.btn{appearance:none;border:0;border-radius:12px;min-height:52px;padding:0 24px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font:600 1.05rem/1 var(--f-display);letter-spacing:.09em;text-transform:uppercase}
+.btn-primary{background:var(--lamp);color:var(--lamp-ink)}
+.btn-primary:active{filter:brightness(.9)}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.step>.btn,.summary .btn{align-self:flex-start}
+@media (max-width:540px){.step>.btn,.summary .btn{align-self:stretch}}
+.progress{display:flex;flex-direction:column;gap:8px}
+.progress-text{font:400 .86rem/1.35 var(--f-mono);color:var(--muted);overflow-wrap:anywhere}
+.progress-bar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.progress-bar i{display:block;height:100%;width:0;background:var(--lamp);transition:width .3s}
+.notice{background:var(--panel-2);border:1px solid var(--warn);border-radius:14px;padding:14px 16px}
+.notice p{margin:0}
+.notice p+p{margin-top:6px;color:var(--muted);font-size:.94rem}
+.notice strong{color:var(--warn);font-weight:500}
+.sub{margin:10px 0 0;font:600 .8rem/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.when{font:400 .8rem/1 var(--f-mono);color:var(--muted);letter-spacing:0;text-transform:none;margin-left:6px}
+.specs{margin:0;display:flex;flex-direction:column}
+.specs>div{display:grid;grid-template-columns:minmax(104px,36%) minmax(0,1fr);gap:12px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.specs>div:last-child{border-bottom:0}
+.specs dt{color:var(--muted);font-size:.92rem}
+.specs dd{margin:0;font:400 .9rem/1.45 var(--f-mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.summary{background:var(--panel-2);border:1px solid var(--lamp);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.summary p{margin:0}
+.sum-k{font:600 .78rem/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--lamp)}
+.sum-name{font:600 1.7rem/1.1 var(--f-display)}
+.cam-list{display:flex;flex-direction:column;gap:12px}
+.cam{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.cam.is-rec{border-color:rgba(255,181,71,.6)}
+.cam.is-front,.cam.is-err{opacity:.78}
+.cam-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.cam-head>div{min-width:0}
+.cam-head h3{margin:0;font:600 1.3rem/1.15 var(--f-display)}
+.cam-label{margin:3px 0 0;font:400 .76rem/1.35 var(--f-mono);color:var(--muted);overflow-wrap:anywhere}
+.chip{flex:none;font:600 .72rem/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;padding:6px 10px;border-radius:999px;background:var(--lamp);color:var(--lamp-ink)}
+.chip.off{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.fit{display:grid;grid-template-columns:1fr auto;gap:7px 10px;align-items:baseline}
+.fit-label{font-size:.88rem;color:var(--muted)}
+.fit-num{font:500 .95rem/1 var(--f-mono);font-variant-numeric:tabular-nums}
+.fit-bar{grid-column:1/-1;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.fit-bar i{display:block;height:100%;background:var(--lamp)}
+.why{margin:0;font-size:.94rem}
+.cam .btn{min-height:44px;font-size:.95rem;align-self:flex-start}
+.raw summary{cursor:pointer;color:var(--muted);font-size:.94rem}
+.raw pre{margin:10px 0 0;max-height:340px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;font:400 .74rem/1.45 var(--f-mono);color:var(--muted)}
+.how{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:8px;max-width:62ch}
+.how li::marker{color:var(--lamp);font:500 .9em var(--f-mono)}
+.foot{color:var(--muted);font-size:.86rem;border-top:1px solid var(--line);padding-top:18px}
+
+/* ---------- Visor ---------- */
+.scope{position:fixed;inset:0;background:#000;color:#fff;overflow:hidden;z-index:5}
+.stage{position:absolute;inset:0;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.stage video,.stage .still{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 50%}
+.stage video{will-change:transform}
+.stage video.realce{filter:contrast(1.25) saturate(1.15) brightness(1.03)}
+.reticle{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ocular{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 50% 50%,transparent 0,transparent min(46vw,40vh),rgba(0,0,0,.94) calc(min(46vw,40vh) + 1.5px))}
+.ocular::after{content:"";position:absolute;left:50%;top:50%;width:calc(2 * min(46vw,40vh));aspect-ratio:1;max-width:100%;transform:translate(-50%,-50%);border-radius:50%;box-shadow:0 0 0 1px rgba(255,181,71,.55)}
+.ring{position:absolute;width:78px;height:78px;margin:-39px 0 0 -39px;border:1.5px solid var(--lamp);border-radius:50%;pointer-events:none;opacity:0;transform:scale(1.35);transition:opacity .25s,transform .25s}
+.ring.show{opacity:1;transform:scale(1)}
+
+.topbar{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:10px;
+  padding-block:calc(env(safe-area-inset-top,0px) + 10px) 22px;
+  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));
+  background:linear-gradient(rgba(0,0,0,.62),rgba(0,0,0,0))}
+.icon-btn{appearance:none;border:0;flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:rgba(255,255,255,.14);color:#fff}
+.icon-btn svg{width:22px;height:22px}
+.status{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border-radius:999px;background:rgba(0,0,0,.5);font:600 .8rem/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--lamp);flex:none}
+.status[data-s="buscando"] i,.status[data-s="enfocando"] i{animation:pulse 1s ease-in-out infinite}
+.status[data-s="aumentando"] i,.status[data-s="listo"] i{background:var(--ok)}
+.status[data-s="manual"] i,.status[data-s="congelado"] i{background:#a7b4b8}
+.cam-name{margin-left:auto;min-width:0;font:400 .74rem/1.25 var(--f-mono);color:rgba(255,255,255,.72);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hint{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 72px);width:min(calc(100% - 28px),440px);transform:translate(-50%,-6px);
+  background:rgba(10,14,16,.88);border:1px solid rgba(255,181,71,.5);border-radius:12px;padding:10px 14px;font-size:.93rem;line-height:1.38;text-align:center;
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+.hint.show{opacity:1;transform:translate(-50%,0)}
+
+.bottom{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:14px;
+  padding-block:34px calc(env(safe-area-inset-bottom,0px) + 16px);
+  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));
+  background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.74) 42%)}
+.readout{display:flex;align-items:flex-end;gap:16px}
+.mag{font:500 2.7rem/.9 var(--f-mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em;white-space:nowrap}
+.mag .x{color:var(--lamp);font-size:.62em;margin-left:3px}
+.meters{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;padding-bottom:2px}
+.meter{display:flex;align-items:center;gap:10px;font:600 .72rem/1 var(--f-display);letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.78)}
+.meter-bar{flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden}
+.meter-bar i{display:block;height:100%;width:0;background:var(--lamp);transition:width .12s linear,background-color .3s}
+.meter-bar i.ok{background:var(--ok)}
+.focus-info{font:400 .78rem/1.2 var(--f-mono);color:rgba(255,255,255,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;justify-items:center}
+.ctl{appearance:none;border:0;background:none;padding:2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:rgba(255,255,255,.9);
+  font:600 .7rem/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase}
+.ctl .ic{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.14);transition:background-color .2s,color .2s}
+.ctl .ic svg{width:22px;height:22px}
+.ctl.is-on .ic{background:var(--lamp);color:var(--lamp-ink)}
+.ctl:disabled{opacity:.35;cursor:default}
+.shutter{appearance:none;width:74px;height:74px;border-radius:50%;border:3px solid #fff;background:transparent;padding:5px;cursor:pointer}
+.shutter i{display:block;width:100%;height:100%;border-radius:50%;background:#fff;transition:transform .1s}
+.shutter:active i{transform:scale(.9)}
+.sheet{background:rgba(12,17,19,.93);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:14px}
+.field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;align-items:center}
+.field>span{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;font:600 .76rem/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.78)}
+.field b{font:500 .85rem/1 var(--f-mono);letter-spacing:0;text-transform:none;color:#fff}
+.field input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--lamp);margin:0}
+#focusField input[type=range]{grid-column:1/2}
+.mini{appearance:none;cursor:pointer;background:none;border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:7px 11px;font:600 .72rem/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase}
+.toggles{display:flex;flex-wrap:wrap;gap:8px}
+.tog{position:relative;display:inline-flex}
+.tog input{position:absolute;opacity:0;pointer-events:none}
+.tog span{padding:8px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.22);font-size:.86rem;cursor:pointer}
+.tog input:checked+span{background:var(--lamp);border-color:var(--lamp);color:var(--lamp-ink)}
+.tog input:focus-visible+span{outline:2px solid var(--lamp);outline-offset:2px}
+.freeze{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:12px;
+  padding-block:40px calc(env(safe-area-inset-bottom,0px) + 18px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.86) 40%)}
+.freeze-title{margin:0;font:400 .84rem/1.3 var(--f-mono);color:rgba(255,255,255,.82)}
+.freeze-actions{display:flex;gap:10px}
+.freeze-actions .btn{flex:1;min-height:48px;padding:0 10px}
+.freeze .btn-ghost{border-color:rgba(255,255,255,.3);color:#fff}
+.scope-error{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;background:var(--ink);
+  padding-block:24px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.scope-error p{margin:0;max-width:40ch;color:var(--text)}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<noscript><p style="padding:24px">Esta app necesita JavaScript.</p></noscript>
+
+<main id="diag">
+  <div class="wrap">
+    <header class="brand">
+      <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-width="2"/>
+        <circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-opacity=".45" stroke-width="1.5"/>
+        <circle cx="24" cy="24" r="6.5" fill="currentColor"/>
+        <path d="M24 1.5v7M24 39.5v7M1.5 24h7M39.5 24h7" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <div>
+        <p class="eyebrow">Herramienta para el móvil</p>
+        <h1>Microscopio Móvil</h1>
+      </div>
+    </header>
+    <p class="lead">Analiza las cámaras de tu teléfono, elige la que enfoca más cerca y la convierte en un microscopio: acercas el móvil a un objeto y la app enfoca y amplía la imagen sola.</p>
+
+    <div id="notice" class="notice" role="alert" hidden></div>
+
+    <section class="step" aria-labelledby="s1">
+      <div class="step-head"><span class="step-n">1</span><h2 id="s1">Identificar cámaras y prestaciones</h2></div>
+      <p class="step-text">El navegador te pedirá permiso para usar la cámara. La app abre cada cámara un instante para leer lo que puede hacer.</p>
+      <button id="btnAnalyze" class="btn btn-primary" type="button">Analizar cámaras</button>
+      <div id="progress" class="progress" hidden>
+        <div id="progressText" class="progress-text">Preparando…</div>
+        <div class="progress-bar"><i id="progressFill"></i></div>
+      </div>
+      <div id="results" class="step" style="border-top:0;padding-top:0" hidden>
+        <div id="summary" class="summary"></div>
+        <h3 class="sub">Este dispositivo</h3>
+        <dl id="deviceList" class="specs"></dl>
+        <h3 class="sub">Cámaras detectadas <span id="when" class="when"></span></h3>
+        <div id="camList" class="cam-list"></div>
+        <details class="raw"><summary>Datos técnicos completos</summary><pre id="rawJson"></pre></details>
+      </div>
+    </section>
+
+    <section class="step" aria-labelledby="s2">
+      <div class="step-head"><span class="step-n">2</span><h2 id="s2">Usar como microscopio</h2></div>
+      <ol class="how">
+        <li>Pulsa <strong>Abrir microscopio</strong> y apunta al objeto.</li>
+        <li>Acerca el móvil hasta que se vea nítido. Si se emborrona, sepáralo un poco: cada cámara tiene una distancia mínima de enfoque.</li>
+        <li>Cuando el objeto está enfocado, la app amplía la imagen hasta el aumento útil. Pellizca para ajustar a mano y toca la pantalla para reenfocar.</li>
+      </ol>
+      <button id="btnOpen" class="btn btn-primary" type="button">Abrir microscopio</button>
+      <p id="openNote" class="fine">Sin análisis previo se usará la cámara trasera principal.</p>
+    </section>
+
+    <footer class="foot">Funciona en Chrome para Android y en Safari para iPhone. Las imágenes no salen de tu teléfono salvo que tú las compartas.</footer>
+  </div>
+</main>
+
+<section id="scope" class="scope" aria-label="Microscopio" hidden>
+  <div id="stage" class="stage">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="still" class="still" hidden></canvas>
+    <svg id="reticle" class="reticle" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+    <div id="ocular" class="ocular" hidden></div>
+    <div id="ring" class="ring"></div>
+  </div>
+
+  <div class="topbar">
+    <button id="btnBack" class="icon-btn" type="button" aria-label="Volver al análisis de cámaras">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div id="status" class="status" data-s="buscando"><i></i><span id="statusText">Buscando enfoque</span></div>
+    <span id="camName" class="cam-name"></span>
+  </div>
+
+  <div id="hint" class="hint" role="status" aria-live="polite"></div>
+
+  <div id="bottom" class="bottom">
+    <div class="readout">
+      <div class="mag" aria-label="Aumento"><span id="magVal">1,0</span><span class="x">×</span></div>
+      <div class="meters">
+        <div class="meter"><span>Nitidez</span><div class="meter-bar"><i id="sharpFill"></i></div></div>
+        <div id="focusInfo" class="focus-info">Autoenfoque</div>
+      </div>
+    </div>
+
+    <div id="sheet" class="sheet" hidden>
+      <label class="field" for="zoomRange"><span>Aumento <b id="zoomOut">1,0×</b></span>
+        <input id="zoomRange" type="range" min="0" max="1000" step="1" value="0"></label>
+      <div id="focusField" class="field" hidden><span>Enfoque <b id="focusOut">auto</b></span>
+        <input id="focusRange" type="range" min="0" max="1000" step="1" value="0" aria-label="Distancia de enfoque">
+        <button id="btnAF" class="mini" type="button">Auto</button></div>
+      <label id="expField" class="field" for="expRange" hidden><span>Exposición <b id="expOut">0</b></span>
+        <input id="expRange" type="range" min="-2" max="2" step="0.1" value="0"></label>
+      <div class="toggles">
+        <label class="tog"><input type="checkbox" id="optOcular"><span>Ocular redondo</span></label>
+        <label class="tog"><input type="checkbox" id="optRealce"><span>Realzar contraste</span></label>
+        <label class="tog"><input type="checkbox" id="optReticula" checked><span>Retícula</span></label>
+      </div>
+    </div>
+
+    <nav class="controls" aria-label="Controles del microscopio">
+      <button id="btnAuto" class="ctl is-on" type="button" aria-pressed="true">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><path d="M9 15.5l3-7.5 3 7.5M10.2 13h3.6"/></svg></span>Auto</button>
+      <button id="btnTorch" class="ctl" type="button" aria-pressed="false">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8v4l-2 3.5V21h-4V10.5L8 7z"/><path d="M8 7h8M12 13.5v2"/></svg></span>Luz</button>
+      <button id="btnShot" class="shutter" type="button" aria-label="Capturar imagen"><i></i></button>
+      <button id="btnSheet" class="ctl" type="button" aria-expanded="false" aria-controls="sheet">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/></svg></span>Ajustes</button>
+      <button id="btnSwitch" class="ctl" type="button">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h3.2L8.5 5h7l1.8 3h3.2v11.5h-17z"/><path d="M9 13.2a3 3 0 0 1 5.3-1.9M15 13.8a3 3 0 0 1-5.3 1.9"/><path d="M14.6 9.4v2h-2M9.4 17.6v-2h2"/></svg></span>Cámara</button>
+    </nav>
+  </div>
+
+  <div id="freeze" class="freeze" hidden>
+    <p class="freeze-title">Imagen capturada · <span id="freezeInfo"></span></p>
+    <div class="freeze-actions">
+      <button id="btnSave" class="btn btn-primary" type="button">Guardar</button>
+      <button id="btnShare" class="btn btn-ghost" type="button">Compartir</button>
+      <button id="btnResume" class="btn btn-ghost" type="button">Seguir</button>
+    </div>
+  </div>
+
+  <div id="scopeError" class="scope-error" hidden>
+    <p id="scopeErrorText"></p>
+    <button id="btnErrBack" class="btn btn-primary" type="button">Volver</button>
+  </div>
+</section>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= Utilidades ================= */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const nf = (n, d = 1) => Number(n).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const signed = v => (v > 0 ? '+' : '') + nf(v, Number.isInteger(v) ? 0 : 1);
+const listEs = a => a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1];
+const capFirst = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const stopStream = s => { try { s && s.getTracks().forEach(t => t.stop()); } catch (e) {} };
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+const fmtDist = m => !isFinite(m) ? '∞' : m < 1 ? `${nf(m * 100, m < 0.1 ? 1 : 0)} cm` : `${nf(m, 1)} m`;
+
+const ui = {};
+['notice','btnAnalyze','progress','progressText','progressFill','results','summary','deviceList','camList','rawJson','when','btnOpen','openNote',
+ 'diag','scope','stage','video','still','reticle','ocular','ring','btnBack','status','statusText','camName','hint','bottom','magVal','sharpFill','focusInfo',
+ 'sheet','zoomRange','zoomOut','focusField','focusRange','focusOut','btnAF','expField','expRange','expOut','optOcular','optRealce','optReticula',
+ 'btnAuto','btnTorch','btnShot','btnSheet','btnSwitch','freeze','freezeInfo','btnSave','btnShare','btnResume','scopeError','scopeErrorText','btnErrBack'
+].forEach(id => ui[id] = document.getElementById(id));
+
+function errText(e) {
+  const n = e && e.name;
+  if (n === 'NotAllowedError' || n === 'SecurityError') return 'No hay permiso para usar la cámara. Actívalo en los permisos del sitio (icono junto a la dirección web) y vuelve a intentarlo.';
+  if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'No se ha encontrado una cámara utilizable.';
+  if (n === 'NotReadableError' || n === 'AbortError') return 'La cámara está ocupada. Cierra otras apps que la estén usando y vuelve a intentarlo.';
+  return 'No se ha podido abrir la cámara' + (n ? ` (${n})` : '') + '.';
+}
+
+function secureOk() { return window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia; }
+function showNotice(html) { ui.notice.innerHTML = html; ui.notice.hidden = false; }
+
+/* ================= 1. Diagnóstico ================= */
+const D = { cams: [], ranked: [], rec: null };
+
+async function deviceInfo() {
+  const ua = navigator.userAgent;
+  const info = { modelo: null, sistema: null, navegador: null,
+    pantalla: `${screen.width} × ${screen.height} puntos · densidad ${nf(devicePixelRatio, devicePixelRatio % 1 ? 2 : 0)}×` };
+  const uad = navigator.userAgentData;
+  if (uad && uad.getHighEntropyValues) {
+    try {
+      const h = await uad.getHighEntropyValues(['model', 'platform', 'platformVersion', 'fullVersionList']);
+      if (h.model) info.modelo = h.model;
+      if (h.platform) info.sistema = `${h.platform} ${h.platformVersion || ''}`.trim();
+      const brands = h.fullVersionList || [];
+      const b = brands.find(x => !/Not.?A.?Brand|Chromium/i.test(x.brand)) || brands[0];
+      if (b) info.navegador = `${b.brand} ${b.version}`;
+    } catch (e) {}
+  }
+  let m;
+  if (!info.sistema) {
+    if ((m = ua.match(/Android ([\d.]+)/))) info.sistema = 'Android ' + m[1];
+    else if ((m = ua.match(/OS (\d+[_\d]*) like Mac OS X/))) info.sistema = 'iOS ' + m[1].replace(/_/g, '.');
+  }
+  if (!info.modelo) {
+    if (isIOS) info.modelo = /iPad/.test(ua) ? 'iPad' : 'iPhone';
+    else if ((m = ua.match(/Android [\d.]+; ([^;)]+)[;)]/)) && m[1] !== 'K') info.modelo = m[1].trim();
+  }
+  if (!info.navegador) {
+    const pats = [[/SamsungBrowser\/([\d.]+)/, 'Samsung Internet'], [/EdgA\/([\d.]+)/, 'Edge'], [/CriOS\/([\d.]+)/, 'Chrome'], [/FxiOS\/([\d.]+)/, 'Firefox'],
+      [/Firefox\/([\d.]+)/, 'Firefox'], [/Chrome\/([\d.]+)/, 'Chrome'], [/Version\/([\d.]+).*Safari/, 'Safari']];
+    for (const [re, name] of pats) if ((m = ua.match(re))) { info.navegador = `${name} ${m[1]}`; break; }
+  }
+  return info;
+}
+
+function plainPhoto(p) {
+  if (!p) return null;
+  const r = x => x ? { min: x.min, max: x.max, step: x.step } : null;
+  return { imageWidth: r(p.imageWidth), imageHeight: r(p.imageHeight), fillLightMode: p.fillLightMode ? [...p.fillLightMode] : [], redEyeReduction: p.redEyeReduction };
+}
+
+async function probeOne(dev, idx) {
+  const r = { id: dev.deviceId, label: dev.label || `Cámara ${idx + 1}`, ok: false };
+  let s = null;
+  try {
+    s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: dev.deviceId }, zoom: true }, audio: false });
+    const t = s.getVideoTracks()[0];
+    r.caps = t.getCapabilities ? JSON.parse(JSON.stringify(t.getCapabilities())) : {};
+    r.settings = t.getSettings ? JSON.parse(JSON.stringify(t.getSettings())) : {};
+    if ('ImageCapture' in window) {
+      try { r.photo = plainPhoto(await withTimeout(new ImageCapture(t).getPhotoCapabilities(), 2500)); } catch (e) {}
+    }
+    r.ok = true;
+  } catch (e) { r.error = e.name || String(e); }
+  finally { stopStream(s); }
+  return enrich(r);
+}
+
+async function probeAll(progress) {
+  const first = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+  stopStream(first);
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+  if (!devs.length) throw Object.assign(new Error('sin cámaras'), { name: 'NotFoundError' });
+  const out = [];
+  for (let i = 0; i < devs.length; i++) {
+    progress(i, devs.length, devs[i].label || `Cámara ${i + 1}`);
+    await sleep(350);
+    out.push(await probeOne(devs[i], i));
+  }
+  return out;
+}
+
+function lensOf(l) {
+  if (/macro/.test(l)) return 'macro';
+  if (/triple/.test(l)) return 'triple';
+  if (/dual wide/.test(l)) return 'dualwide';
+  if (/dual/.test(l)) return 'dual';
+  if (/ultra ?-?wide|ultrawide|gran angular/.test(l)) return 'ultra';
+  if (/tele/.test(l)) return 'tele';
+  return '';
+}
+
+function niceName(c) {
+  const l = c.label.toLowerCase();
+  const names = { triple: 'Trasera triple (cambia de lente)', dualwide: 'Trasera doble gran angular', dual: 'Trasera doble', ultra: 'Trasera gran angular', tele: 'Trasera teleobjetivo', macro: 'Trasera macro' };
+  if (c.lens && names[c.lens]) return c.facing === 'user' ? names[c.lens].replace('Trasera', 'Frontal') : names[c.lens];
+  if (c.facing === 'user') return 'Cámara frontal';
+  if (/^back camera$/.test(l)) return 'Trasera principal';
+  const m = l.match(/camera2? ?(\d+)/);
+  if (c.facing === 'environment') return m ? (m[1] === '0' ? 'Trasera principal' : `Trasera nº ${m[1]}`) : 'Cámara trasera';
+  return c.label || 'Cámara';
+}
+
+function enrich(r) {
+  const c = r.caps || {}, st = r.settings || {}, l = r.label.toLowerCase();
+  let facing = st.facingMode || (Array.isArray(c.facingMode) && c.facingMode[0]) || '';
+  if (!facing) {
+    if (/back|rear|trasera|environment|posterior/.test(l)) facing = 'environment';
+    else if (/front|frontal|user|selfie|truedepth|delantera/.test(l)) facing = 'user';
+  }
+  r.facing = facing;
+  r.lens = lensOf(l);
+  r.name = niceName(r);
+  const W = c.width && c.width.max, H = c.height && c.height.max;
+  r.videoMax = W && H ? { w: W, h: H, mp: W * H / 1e6 } : null;
+  const pw = r.photo && r.photo.imageWidth && r.photo.imageWidth.max, ph = r.photo && r.photo.imageHeight && r.photo.imageHeight.max;
+  r.photoMax = pw && ph ? { w: pw, h: ph, mp: pw * ph / 1e6 } : null;
+  r.fps = c.frameRate && c.frameRate.max ? Math.round(c.frameRate.max) : null;
+  r.zoom = c.zoom && c.zoom.max > c.zoom.min ? { min: c.zoom.min, max: c.zoom.max } : null;
+  r.focusModes = Array.isArray(c.focusMode) ? c.focusMode : [];
+  const fd = c.focusDistance;
+  r.focusManual = !!(fd && fd.min > 0 && (fd.max == null || fd.max > fd.min) && r.focusModes.includes('manual'));
+  r.minFocusCm = fd && fd.min > 0 && fd.min < 2 ? fd.min * 100 : null;
+  r.torch = c.torch === true || (Array.isArray(c.torch) && c.torch.includes(true));
+  r.expComp = c.exposureCompensation && c.exposureCompensation.max > c.exposureCompensation.min ? { min: c.exposureCompensation.min, max: c.exposureCompensation.max } : null;
+  r.wbModes = Array.isArray(c.whiteBalanceMode) ? c.whiteBalanceMode : [];
+  r.iso = c.iso && c.iso.max ? { min: c.iso.min, max: c.iso.max } : null;
+  r.imageAdj = ['brightness', 'contrast', 'saturation', 'sharpness'].filter(k => c[k] && c[k].max > c[k].min);
+  Object.assign(r, scoreCam(r));
+  return r;
+}
+
+function scoreCam(r) {
+  if (!r.ok) return { score: 0, reasons: [] };
+  if (r.facing === 'user') return { score: 5, reasons: ['es la cámara frontal'] };
+  let s = 35; const why = [];
+  if (r.lens === 'macro') { s += 30; why.push('es una cámara macro'); }
+  if (r.minFocusCm) {
+    const cm = r.minFocusCm, b = cm <= 3 ? 25 : cm <= 5 ? 20 : cm <= 8 ? 14 : cm <= 12 ? 8 : cm <= 20 ? 3 : 0;
+    s += b; if (b >= 8) why.push(`enfoca desde ≈ ${nf(cm, 0)} cm`);
+  }
+  if (r.focusManual) { s += 8; why.push('permite enfoque manual fino'); }
+  else if (r.focusModes.includes('continuous')) { s += 4; why.push('tiene autoenfoque continuo'); }
+  if (r.zoom) { const z = r.zoom.max / r.zoom.min; s += Math.min(10, (z - 1) * 1.5); if (z >= 2) why.push(`zoom de cámara hasta ${nf(z, 1)}×`); }
+  const mp = r.videoMax ? r.videoMax.mp : 0;
+  s += Math.min(8, mp); if (mp >= 8) why.push('graba en 4K, que da más detalle al ampliar');
+  if (r.torch) { s += 5; why.push('tiene linterna'); }
+  if (isIOS && r.lens === 'ultra') { s += 10; why.push('en los iPhone Pro el gran angular enfoca a muy poca distancia'); }
+  if (isIOS && (r.lens === 'triple' || r.lens === 'dualwide')) { s += 12; why.push('puede cambiar de lente automáticamente al acercarse'); }
+  if (r.lens === 'tele') { s -= 15; why.push('el teleobjetivo no enfoca de cerca'); }
+  return { score: Math.round(clamp(s, 0, 100)), reasons: why };
+}
+
+const focusNames = { continuous: 'automático continuo', 'single-shot': 'al tocar', manual: 'manual por distancia', none: 'fijo' };
+const wbNames = { continuous: 'automático', manual: 'manual', 'single-shot': 'al tocar', none: 'fijo' };
+const adjNames = { brightness: 'brillo', contrast: 'contraste', saturation: 'saturación', sharpness: 'nitidez' };
+
+function camRows(c) {
+  const rows = [];
+  rows.push(['Orientación', c.facing === 'environment' ? 'Trasera' : c.facing === 'user' ? 'Frontal' : 'No indicada']);
+  if (c.videoMax) rows.push(['Vídeo máximo', `${c.videoMax.w} × ${c.videoMax.h} · ${nf(c.videoMax.mp, 1)} MP`]);
+  if (c.photoMax) rows.push(['Foto máxima', `${c.photoMax.w} × ${c.photoMax.h} · ${nf(c.photoMax.mp, 1)} MP`]);
+  if (c.fps) rows.push(['Fotogramas', `hasta ${c.fps} por segundo`]);
+  rows.push(['Zoom de cámara', c.zoom ? `${nf(c.zoom.min, 1)}× a ${nf(c.zoom.max, 1)}×` : 'No (la app usará zoom digital)']);
+  rows.push(['Enfoque', c.focusModes.length ? capFirst(listEs(c.focusModes.map(m => focusNames[m] || m))) : 'El navegador no lo informa']);
+  if (c.minFocusCm) rows.push(['Enfoca desde', `≈ ${nf(c.minFocusCm, c.minFocusCm < 10 ? 1 : 0)} cm`]);
+  rows.push(['Linterna', c.torch ? 'Sí' : 'No']);
+  if (c.expComp) rows.push(['Exposición', `ajustable de ${signed(c.expComp.min)} a ${signed(c.expComp.max)}`]);
+  if (c.wbModes.length) rows.push(['Balance de blancos', capFirst(listEs(c.wbModes.map(m => wbNames[m] || m)))]);
+  if (c.iso) rows.push(['ISO', `${c.iso.min} – ${c.iso.max}`]);
+  if (c.imageAdj.length) rows.push(['Ajustes de imagen', capFirst(listEs(c.imageAdj.map(a => adjNames[a])))]);
+  return rows;
+}
+
+const dl = rows => rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+
+function renderResults(data) {
+  D.cams = data.cams || [];
+  D.ranked = D.cams.filter(c => c.ok && c.facing !== 'user').sort((a, b) => b.score - a.score);
+  if (!D.ranked.length) D.ranked = D.cams.filter(c => c.ok);
+  D.rec = D.ranked[0] || null;
+
+  const dv = data.device || {};
+  ui.deviceList.innerHTML = dl([
+    ['Modelo', dv.modelo ? dv.modelo + (isIOS ? ' (Safari no indica el modelo exacto)' : '') : 'No disponible'],
+    ['Sistema', dv.sistema || '—'], ['Navegador', dv.navegador || '—'], ['Pantalla', dv.pantalla || '—'],
+    ['Cámaras visibles', `${D.cams.length} (${D.cams.filter(c => c.facing === 'environment').length} traseras, ${D.cams.filter(c => c.facing === 'user').length} frontales)`]
+  ]);
+
+  const rec = D.rec;
+  const hasMacro = D.cams.some(c => c.lens === 'macro');
+  ui.summary.innerHTML = rec ? `
+    <p class="sum-k">Recomendada para microscopio</p>
+    <p class="sum-name">${esc(rec.name)}</p>
+    <p>${rec.reasons.length ? esc(capFirst(listEs(rec.reasons))) + '.' : 'Es la cámara trasera con mejores prestaciones que deja usar el navegador.'}</p>
+    <p class="fine">${hasMacro ? 'Se ha detectado una cámara macro.' : 'Muchos móviles no dejan usar su cámara macro desde el navegador; aquí solo aparecen las cámaras que el sistema permite.'}</p>
+    <button class="btn btn-primary" type="button" data-open="${esc(rec.id)}">Abrir microscopio</button>`
+    : `<p class="sum-k">Sin cámara utilizable</p><p>No se ha podido abrir ninguna cámara. Cierra otras apps que usen la cámara y vuelve a analizar.</p>`;
+
+  const order = [...D.cams].sort((a, b) => (b === rec) - (a === rec) || (b.ok - a.ok) || (a.facing === 'user') - (b.facing === 'user') || b.score - a.score);
+  ui.camList.innerHTML = order.map(c => {
+    if (!c.ok) return `<article class="cam is-err"><div class="cam-head"><div><h3>${esc(c.name)}</h3><p class="cam-label">${esc(c.label)}</p></div><span class="chip off">No disponible</span></div>
+      <p class="why">El sistema no ha dejado abrirla (${esc(c.error || 'error')}).</p></article>`;
+    const isRec = c === rec, front = c.facing === 'user';
+    return `<article class="cam${isRec ? ' is-rec' : ''}${front ? ' is-front' : ''}">
+      <div class="cam-head"><div><h3>${esc(c.name)}</h3><p class="cam-label">${esc(c.label)}</p></div>
+        ${isRec ? '<span class="chip">Recomendada</span>' : front ? '<span class="chip off">No apta</span>' : ''}</div>
+      <div class="fit"><span class="fit-label">Aptitud como microscopio</span><span class="fit-num">${c.score}/100</span><div class="fit-bar"><i style="width:${c.score}%"></i></div></div>
+      ${c.reasons.length && !isRec ? `<p class="why">${esc(capFirst(listEs(c.reasons)))}.</p>` : ''}
+      <dl class="specs">${dl(camRows(c))}</dl>
+      ${front ? '' : `<button class="btn btn-ghost" type="button" data-open="${esc(c.id)}">Usar esta cámara</button>`}
+    </article>`;
+  }).join('');
+
+  ui.rawJson.textContent = JSON.stringify(D.cams.map(c => ({ etiqueta: c.label, capacidades: c.caps, ajustesActuales: c.settings, foto: c.photo, error: c.error })), null, 2);
+  ui.when.textContent = data.when ? '· ' + new Date(data.when).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  ui.results.hidden = false;
+  updateOpenNote();
+}
+
+function chosenCam() {
+  const id = store.get('mm.cam');
+  return D.cams.find(c => c.id === id && c.ok && c.facing !== 'user') || D.rec || null;
+}
+function updateOpenNote() {
+  const c = chosenCam();
+  ui.openNote.textContent = c ? `Se usará: ${c.name}.` : 'Sin análisis previo se usará la cámara trasera principal.';
+}
+
+function setProgress(f, text) { ui.progressFill.style.width = (f * 100).toFixed(0) + '%'; ui.progressText.textContent = text; }
+
+ui.btnAnalyze.addEventListener('click', async () => {
+  if (!secureOk()) { insecureNotice(); return; }
+  ui.notice.hidden = true;
+  ui.btnAnalyze.disabled = true; ui.progress.hidden = false;
+  setProgress(0.02, 'Pidiendo permiso para usar la cámara…');
+  try {
+    const device = await deviceInfo();
+    const cams = await probeAll((i, n, label) => setProgress((i + 0.5) / n, `Analizando cámara ${i + 1} de ${n} · ${label}`));
+    setProgress(1, `Listo: ${cams.length} cámaras analizadas.`);
+    const data = { when: Date.now(), device, cams };
+    store.set('mm.analysis', data);
+    renderResults(data);
+    ui.summary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    showNotice(`<p><strong>${esc(errText(e))}</strong></p>`);
+  } finally {
+    ui.btnAnalyze.disabled = false; ui.btnAnalyze.textContent = 'Volver a analizar';
+    setTimeout(() => { ui.progress.hidden = true; }, 900);
+  }
+});
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-open]');
+  if (!b) return;
+  const cam = D.cams.find(c => c.id === b.dataset.open) || null;
+  if (cam) store.set('mm.cam', cam.id);
+  updateOpenNote();
+  openScope(cam);
+});
+ui.btnOpen.addEventListener('click', () => openScope(chosenCam()));
+
+function insecureNotice() {
+  showNotice(`<p><strong>La cámara no está disponible en esta página.</strong></p>
+    <p>Los navegadores solo dejan usar la cámara en direcciones seguras (https). Publica la app, por ejemplo en GitHub Pages, y ábrela desde el móvil con Chrome o Safari.</p>`);
+}
+
+/* ================= 2. Microscopio ================= */
+const FLOOR = 12;               // nitidez mínima para considerar que hay detalle
+const AUTO_MIN = 2;             // aumento mínimo que aplica el modo automático
+const AN = 160;                 // lado del recorte que se analiza
+const anCanvas = document.createElement('canvas'); anCanvas.width = anCanvas.height = AN;
+const actx = anCanvas.getContext('2d', { willReadFrequently: true });
+const gray = new Float32Array(AN * AN);
+let prevGray = null;
+let cq = Promise.resolve();
+
+const M = {
+  cam: null, stream: null, track: null, cap: {},
+  Z: 1, Zshow: 1, Zmin: 1, Zmax: 8, autoMax: 4, css: 1,
+  hwMin: 1, hwMax: 1, hwBase: 1, hwApplied: 1, hwPending: false, hwLast: 0, hwFail: 0,
+  auto: true, state: 'buscando', frozen: false, sweeping: false, sweepToken: 0,
+  sharp: 0, ema: 0, emaPrev: 0, peak: 0, bright: 128, motion: 0, prevZ: 1,
+  stable: 0, blurT: 0, lowT: 0, startSharp: 0, holdRef: 0, empty: 0, sweptHere: false, refocused: false,
+  torchOn: false, torchUser: false, darkT: 0, focusManual: false, focusDist: null, minFocusCm: null,
+  roi: { x: 0.5, y: 0.5 }, waiters: [], th: {}, raf: 0, lastTs: 0, lastAn: 0, lastTr: '', lastMag: '', wake: null, resumeOnShow: false,
+  opts: Object.assign({ ocular: false, realce: false, reticula: true }, store.get('mm.opts') || {})
+};
+
+function showScreen(name) {
+  ui.diag.hidden = name !== 'diag';
+  ui.scope.hidden = name !== 'scope';
+  document.body.classList.toggle('in-scope', name === 'scope');
+}
+
+const statusNames = { buscando: 'Buscando enfoque', enfocando: 'Enfocando…', aumentando: 'Ampliando', listo: 'Enfocado', manual: 'Manual', congelado: 'Capturada' };
+function setStatus(s) { ui.status.dataset.s = s; ui.statusText.textContent = statusNames[s] || s; }
+function setState(s) { M.state = s; if (!M.sweeping && !M.frozen) setStatus(s); }
+
+let hintTimer = 0; const hintSeen = {};
+function hint(text, key, ms = 4000) {
+  const now = performance.now();
+  if (key && hintSeen[key] && now - hintSeen[key] < 15000) return;
+  if (key) hintSeen[key] = now;
+  ui.hint.textContent = text; ui.hint.classList.add('show');
+  clearTimeout(hintTimer); hintTimer = setTimeout(() => ui.hint.classList.remove('show'), ms);
+}
+
+function constrain(adv) {
+  const t = M.track;
+  if (!t || !t.applyConstraints) return Promise.reject(new Error('sin pista'));
+  const p = cq.then(() => t.applyConstraints({ advanced: [adv] }));
+  cq = p.catch(() => {});
+  return p;
+}
+function throttled(key, adv) {
+  const s = M.th[key] || (M.th[key] = { busy: false, next: null });
+  s.next = adv;
+  if (s.busy) return;
+  s.busy = true;
+  (async () => { while (s.next) { const a = s.next; s.next = null; try { await constrain(a); } catch (e) {} } s.busy = false; })();
+}
+
+async function openScope(cam) {
+  if (!secureOk()) { insecureNotice(); window.scrollTo(0, 0); return; }
+  M.cam = cam || null;
+  showScreen('scope');
+  ui.scopeError.hidden = true; ui.freeze.hidden = true; ui.bottom.hidden = false; ui.still.hidden = true; M.frozen = false;
+  applyOpts();
+  await startStream();
+}
+
+function stopStreamOnly() {
+  M.sweepToken++; M.sweeping = false;
+  if (M.stream) stopStream(M.stream);
+  M.stream = null; M.track = null; cq = Promise.resolve(); M.th = {};
+  ui.video.srcObject = null;
+  M.waiters.splice(0).forEach(w => w(0));
+  M.torchOn = false; M.torchUser = false; ui.btnTorch.classList.remove('is-on'); ui.btnTorch.setAttribute('aria-pressed', 'false');
+}
+
+function closeScope() {
+  stopStreamOnly();
+  cancelAnimationFrame(M.raf); M.raf = 0;
+  releaseWakeLock();
+  ui.sheet.hidden = true; ui.btnSheet.setAttribute('aria-expanded', 'false');
+  showScreen('diag');
+}
+
+function showScopeError(msg) { ui.scopeErrorText.textContent = msg; ui.scopeError.hidden = false; }
+
+async function startStream() {
+  stopStreamOnly();
+  setStatus('buscando');
+  const sel = M.cam && M.cam.id ? { deviceId: { exact: M.cam.id } } : { facingMode: { ideal: 'environment' } };
+  const tries = [
+    Object.assign({}, sel, { width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 30 }, zoom: true }),
+    Object.assign({}, sel, { width: { ideal: 1920 }, height: { ideal: 1080 }, zoom: true }),
+    Object.assign({}, sel),
+    { facingMode: { ideal: 'environment' } }
+  ];
+  let stream = null, err = null;
+  for (const v of tries) {
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: v, audio: false }); break; }
+    catch (e) { err = e; if (e.name === 'NotAllowedError' || e.name === 'SecurityError') break; }
+  }
+  if (ui.scope.hidden) { stopStream(stream); return; }
+  if (!stream) { showScopeError(errText(err)); return; }
+  M.stream = stream; M.track = stream.getVideoTracks()[0];
+  ui.video.srcObject = stream;
+  try { await ui.video.play(); } catch (e) {}
+  await new Promise(r => { if (ui.video.videoWidth) return r(); const t = setTimeout(r, 4000); ui.video.addEventListener('loadeddata', () => { clearTimeout(t); r(); }, { once: true }); });
+  M.track.addEventListener('ended', () => { if (!ui.scope.hidden && !document.hidden && M.track) showScopeError('La cámara se ha desconectado.'); });
+  setupCaps();
+  requestWakeLock();
+  startAuto();
+  const cm = M.minFocusCm;
+  hint(`Acerca el móvil al objeto${cm ? ` (esta cámara enfoca desde ≈ ${nf(cm, 0)} cm)` : ''}. Cuando esté nítido, ampliaré la imagen.`, null, 5000);
+  if (!M.raf) M.raf = requestAnimationFrame(loop);
+}
+
+function setupCaps() {
+  const t = M.track;
+  const c = (t.getCapabilities && t.getCapabilities()) || {};
+  const s = (t.getSettings && t.getSettings()) || {};
+  const cap = {};
+  if (c.zoom && c.zoom.max > c.zoom.min) cap.zoom = { min: c.zoom.min, max: c.zoom.max, step: c.zoom.step || 0.01 };
+  cap.focusModes = Array.isArray(c.focusMode) ? c.focusMode : [];
+  const fd = c.focusDistance;
+  if (fd && fd.min > 0 && (fd.max == null || fd.max > fd.min) && cap.focusModes.includes('manual'))
+    cap.focusDist = { min: fd.min, max: fd.max == null ? Infinity : fd.max, step: fd.step || 0 };
+  cap.torch = c.torch === true || (Array.isArray(c.torch) && c.torch.includes(true));
+  if (c.exposureCompensation && c.exposureCompensation.max > c.exposureCompensation.min) cap.exp = c.exposureCompensation;
+  const sup = navigator.mediaDevices.getSupportedConstraints ? navigator.mediaDevices.getSupportedConstraints() : {};
+  cap.poi = !!sup.pointsOfInterest && cap.focusModes.length > 0;
+  M.cap = cap;
+
+  M.hwMin = cap.zoom ? cap.zoom.min : 1;
+  M.hwMax = cap.zoom ? cap.zoom.max : 1;
+  M.hwBase = cap.zoom ? clamp(typeof s.zoom === 'number' ? s.zoom : cap.zoom.min, cap.zoom.min, cap.zoom.max) : 1;
+  M.hwApplied = M.hwBase; M.hwFail = 0; M.hwPending = false;
+  M.Zmin = cap.zoom ? Math.min(1, M.hwMin / M.hwBase) : 1;
+  const hwRange = cap.zoom ? M.hwMax / M.hwBase : 1;
+  M.Zmax = clamp(hwRange * 4, 8, 40);
+  const longSide = Math.max(ui.video.videoWidth, ui.video.videoHeight);
+  M.autoMax = cap.zoom ? clamp(hwRange * 1.25, 4, 12) : (longSide >= 3000 ? 8 : 5);
+  M.minFocusCm = cap.focusDist && cap.focusDist.min < 2 ? cap.focusDist.min * 100 : (M.cam && M.cam.minFocusCm) || null;
+
+  ui.camName.textContent = (M.cam && M.cam.name) || 'Cámara trasera';
+  ui.btnTorch.disabled = !cap.torch;
+  ui.btnSwitch.disabled = D.ranked.length < 2;
+  ui.focusField.hidden = !cap.focusDist;
+  ui.expField.hidden = !cap.exp;
+  if (cap.exp) {
+    ui.expRange.min = cap.exp.min; ui.expRange.max = cap.exp.max; ui.expRange.step = cap.exp.step || 0.1;
+    ui.expRange.value = typeof s.exposureCompensation === 'number' ? s.exposureCompensation : 0;
+    ui.expOut.textContent = signed(+ui.expRange.value);
+  }
+  M.torchOn = !!s.torch;
+  syncZoomRange();
+}
+
+/* ----- Zoom ----- */
+function setZ(z, immediate) { M.Z = clamp(z, M.Zmin, M.Zmax); if (immediate) M.Zshow = M.Z; syncZoomRange(); }
+function zToRange(z) { return Math.round(1000 * Math.log(z / M.Zmin) / Math.log(M.Zmax / M.Zmin)); }
+function rangeToZ(v) { return M.Zmin * Math.exp(Math.log(M.Zmax / M.Zmin) * v / 1000); }
+function syncZoomRange() { if (document.activeElement !== ui.zoomRange) ui.zoomRange.value = zToRange(M.Z); }
+
+function renderZoom() {
+  const want = M.hwBase * M.Zshow;
+  if (M.cap.zoom && M.track) {
+    const target = clamp(want, M.hwMin, M.hwMax), now = performance.now();
+    if (!M.hwPending && Math.abs(target - M.hwApplied) / M.hwApplied > 0.02 && now - M.hwLast > 120) {
+      M.hwPending = true; M.hwLast = now;
+      const st = M.cap.zoom.step, v = clamp(Math.round(target / st) * st, M.hwMin, M.hwMax);
+      const adv = { zoom: v }; if (M.torchOn) adv.torch = true;
+      constrain(adv).then(() => {
+        const s = (M.track && M.track.getSettings && M.track.getSettings()) || {};
+        M.hwApplied = typeof s.zoom === 'number' ? s.zoom : v; M.hwFail = 0;
+      }).catch(() => { if (++M.hwFail > 3) { M.cap.zoom = null; M.hwApplied = M.hwBase; } })
+        .finally(() => { M.hwPending = false; });
+    }
+  }
+  M.css = Math.max(1, want / M.hwApplied);
+  const tr = `scale(${M.css.toFixed(4)})`;
+  if (tr !== M.lastTr) { ui.video.style.transform = tr; M.lastTr = tr; }
+  const label = nf(M.Zshow, M.Zshow < 10 ? 1 : 0);
+  if (label !== M.lastMag) { ui.magVal.textContent = label; ui.zoomOut.textContent = label + '×'; M.lastMag = label; }
+}
+
+/* ----- Análisis de imagen: nitidez (varianza del laplaciano), brillo y movimiento ----- */
+function visibleRect() {
+  const v = ui.video, vw = v.videoWidth, vh = v.videoHeight, cw = ui.stage.clientWidth, ch = ui.stage.clientHeight;
+  const k = Math.max(cw / vw, ch / vh) * M.css;
+  const w = Math.min(vw, cw / k), h = Math.min(vh, ch / k);
+  return { x: (vw - w) / 2, y: (vh - h) / 2, w, h, vw, vh };
+}
+
+function analyze() {
+  const r = visibleRect();
+  const side = Math.max(8, Math.min(r.w, r.h) * 0.5);
+  const sx = clamp(r.x + r.w * M.roi.x - side / 2, 0, r.vw - side), sy = clamp(r.y + r.h * M.roi.y - side / 2, 0, r.vh - side);
+  try { actx.drawImage(ui.video, sx, sy, side, side, 0, 0, AN, AN); } catch (e) { return false; }
+  const d = actx.getImageData(0, 0, AN, AN).data;
+  let sum = 0;
+  for (let i = 0, j = 0; i < gray.length; i++, j += 4) { const g = d[j] * 0.299 + d[j + 1] * 0.587 + d[j + 2] * 0.114; gray[i] = g; sum += g; }
+  let ls = 0, ls2 = 0, gs = 0, n = 0;
+  for (let y = 1; y < AN - 1; y++) {
+    const o = y * AN;
+    for (let x = 1; x < AN - 1; x++) {
+      const i = o + x, L = 4 * gray[i] - gray[i - 1] - gray[i + 1] - gray[i - AN] - gray[i + AN];
+      ls += L; ls2 += L * L; gs += Math.abs(gray[i + 1] - gray[i - 1]) + Math.abs(gray[i + AN] - gray[i - AN]); n++;
+    }
+  }
+  const varL = ls2 / n - (ls / n) * (ls / n);
+  const grad = gs / n / 4;   // gradiente medio por píxel
+  const zStable = Math.abs(M.Zshow - M.prevZ) / M.Zshow < 0.004 && !M.sweeping;
+  let motion = M.motion * 0.6;
+  // Movimiento ≈ desplazamiento aparente en píxeles: diferencia entre fotogramas dividida por el gradiente,
+  // para que una textura con mucho contraste no parezca movimiento.
+  if (prevGray && zStable) { let md = 0, c = 0; for (let i = 0; i < gray.length; i += 3) { md += Math.abs(gray[i] - prevGray[i]); c++; } motion = (md / c) / (grad + 1.5); }
+  if (!prevGray) prevGray = new Float32Array(gray.length);
+  prevGray.set(gray); M.prevZ = M.Zshow;
+
+  M.motion = motion; M.bright = sum / gray.length; M.sharp = varL;
+  M.emaPrev = M.ema;
+  M.ema = M.ema ? M.ema * 0.55 + varL * 0.45 : varL;
+  if (M.state === 'buscando' && M.motion > 4) M.peak = M.ema; else M.peak = Math.max(M.ema, M.peak * 0.993);
+  if (M.waiters.length) M.waiters.splice(0).forEach(w => w(varL));
+
+  ui.sharpFill.style.width = (clamp(Math.log10(1 + M.ema) / Math.log10(601), 0, 1) * 100).toFixed(1) + '%';
+  ui.sharpFill.classList.toggle('ok', isFocused());
+  return true;
+}
+// Factor de zoom digital (CSS) a partir del cual cada píxel de la cámara ocupa más de 2,5 píxeles físicos de pantalla.
+function cssLimit() {
+  const v = ui.video, k = Math.max(ui.stage.clientWidth / v.videoWidth, ui.stage.clientHeight / v.videoHeight);
+  return Math.max(1, 2.5 / ((window.devicePixelRatio || 1) * k));
+}
+function isFocused() { return M.ema > FLOOR && M.ema >= 0.7 * M.peak; }
+function nextSample() { return new Promise(r => { const t = setTimeout(() => r(M.sharp), 700); M.waiters.push(v => { clearTimeout(t); r(v); }); }); }
+async function samples(n) { let s = 0; for (let i = 0; i < n; i++) s += await nextSample(); return s / n; }
+
+/* ----- Enfoque ----- */
+function canSweep() { return !!M.cap.focusDist; }
+function snapFocus(d) { const f = M.cap.focusDist; let v = clamp(d, f.min, f.max); if (f.step > 0) v = clamp(Math.round(v / f.step) * f.step, f.min, f.max); return v; }
+function focusBounds() {
+  const f = M.cap.focusDist, near = Math.max(f.min, 0.001);
+  let far = Math.min(isFinite(f.max) ? f.max : near * 100, Math.max(3, near * 4));  // para un microscopio no hace falta enfocar más lejos
+  if (far <= near) far = near * 1.5;
+  return { dNear: 1 / near, dFar: 1 / far };
+}
+function rangeToFocus(v) { const { dNear, dFar } = focusBounds(); return 1 / (dNear - (dNear - dFar) * v / 1000); }
+function focusToRange(d) { const { dNear, dFar } = focusBounds(); return Math.round(clamp((dNear - 1 / d) / (dNear - dFar), 0, 1) * 1000); }
+
+function updateFocusUI() {
+  const manual = M.focusManual && M.focusDist != null;
+  ui.focusInfo.textContent = manual ? `Enfoque fijado a ≈ ${fmtDist(M.focusDist)}` : (M.cap.focusModes && M.cap.focusModes.includes('continuous') ? 'Autoenfoque continuo' : 'Enfoque del sistema');
+  ui.focusOut.textContent = manual ? fmtDist(M.focusDist) : 'auto';
+  if (manual && document.activeElement !== ui.focusRange && M.cap.focusDist) ui.focusRange.value = focusToRange(M.focusDist);
+}
+function setFocusDistance(d) {
+  const v = snapFocus(d);
+  M.focusManual = true; M.focusDist = v; updateFocusUI();
+  return constrain({ focusMode: 'manual', focusDistance: v }).catch(() => {});
+}
+function setFocusContinuous() {
+  M.focusManual = false; M.focusDist = null; updateFocusUI();
+  if (M.cap.focusModes && M.cap.focusModes.includes('continuous')) return constrain({ focusMode: 'continuous' }).catch(() => {});
+  return Promise.resolve();
+}
+
+// Barrido de enfoque: prueba distancias, mide la nitidez y se queda con la mejor.
+async function sweepFocus() {
+  if (M.sweeping || !canSweep() || M.frozen || !M.track) return;
+  const token = ++M.sweepToken;
+  M.sweeping = true; setStatus('enfocando');
+  const alive = () => token === M.sweepToken && !M.frozen && M.track;
+  try {
+    const { dNear, dFar } = focusBounds();
+    const N = 7, step = (dNear - dFar) / (N - 1);
+    const pos = Array.from({ length: N }, (_, i) => 1 / (dNear - step * i));
+    let best = { v: -1, i: 0, d: pos[0] };
+    for (let i = 0; i < N; i++) {
+      await setFocusDistance(pos[i]); await sleep(160);
+      if (!alive()) return;
+      const v = await samples(1);
+      if (v > best.v) best = { v, i, d: pos[i] };
+    }
+    const di = 1 / best.d;
+    for (const off of [-0.5, 0.5]) {
+      const dio = di + off * step;
+      if (dio > dNear || dio < dFar) continue;
+      await setFocusDistance(1 / dio); await sleep(160);
+      if (!alive()) return;
+      const v = await samples(1);
+      if (v > best.v) best = { v, i: best.i, d: 1 / dio };
+    }
+    await setFocusDistance(best.d);
+    M.peak = Math.max(best.v, M.peak * 0.5);
+    if (best.i === 0 && best.v < FLOOR * 2) tooCloseHint();
+  } finally {
+    if (token === M.sweepToken) { M.sweeping = false; if (!M.frozen) setStatus(M.auto ? M.state : 'manual'); }
+  }
+}
+
+function tooCloseHint() {
+  const cm = M.minFocusCm;
+  hint(cm ? `Se ve borroso: separa el móvil hasta unos ${nf(Math.max(cm, 2), 0)}–${nf(Math.max(cm, 2) * 1.6, 0)} cm. Más cerca no puede enfocar; el aumento lo pone la app.`
+          : 'Se ve borroso: separa un poco el móvil (unos 5–10 cm). Más cerca no puede enfocar; el aumento lo pone la app.', 'close', 6500);
+}
+
+/* ----- Linterna ----- */
+function setTorch(on) {
+  if (!M.cap.torch) return;
+  constrain({ torch: on }).then(() => {
+    M.torchOn = on; ui.btnTorch.classList.toggle('is-on', on); ui.btnTorch.setAttribute('aria-pressed', String(on));
+  }).catch(() => {});
+}
+
+/* ----- Automático: buscar → ampliar → mantener ----- */
+function setAutoButton(on) { ui.btnAuto.classList.toggle('is-on', on); ui.btnAuto.setAttribute('aria-pressed', String(on)); }
+function startAuto() {
+  M.auto = true; setAutoButton(true);
+  M.roi = { x: 0.5, y: 0.5 }; M.peak = 0; M.ema = 0; M.stable = 0; M.blurT = 0; M.lowT = 0; M.sweptHere = false; M.refocused = false;
+  setZ(1); setFocusContinuous(); setState('buscando');
+}
+function stopAuto() { if (!M.auto) return; M.auto = false; setAutoButton(false); setState('manual'); }
+function setManualZ(z, immediate) { stopAuto(); setZ(z, immediate); }
+function reacquire() {
+  M.roi = { x: 0.5, y: 0.5 }; M.stable = 0; M.blurT = 0; M.lowT = 0; M.sweptHere = false; M.refocused = false; M.peak = 0;
+  setZ(1); if (M.focusManual) setFocusContinuous();
+  setState('buscando');
+  hint('He perdido el enfoque. Vuelvo a buscar…', 'lost', 2500);
+}
+function finishAuto() {
+  setState('listo'); M.holdRef = M.ema; M.lowT = 0; M.refocused = false;
+  hint(`Aumento útil: ${nf(M.Z, 1)}×. Pellizca para ampliar más (con menos detalle) o toca para reenfocar.`, 'limit', 4500);
+}
+
+function autoStep(dt) {
+  if (M.cap.torch && !M.torchUser) {
+    if (M.bright < 40 && !M.torchOn) { M.darkT += dt; if (M.darkT > 1.2) { M.darkT = 0; setTorch(true); hint('Poca luz: he encendido la linterna.', 'torch'); } }
+    else M.darkT = 0;
+  } else if (!M.cap.torch && M.bright < 30) hint('Poca luz. Ilumina el objeto de lado con otra lámpara.', 'dark');
+
+  if (!M.auto || M.sweeping || M.frozen) return;
+  const still = M.motion < 1.2;
+  const plateau = M.emaPrev > 0 && (M.ema - M.emaPrev) / M.ema < 0.08;
+  const focused = isFocused() && plateau;
+
+  if (M.state === 'buscando') {
+    if (Math.abs(M.Z - M.Zshow) > 0.05) return;
+    if (M.focusManual && M.motion > 3) { setFocusContinuous(); M.sweptHere = false; }
+    if (focused && still) {
+      M.stable += dt; M.blurT = 0;
+      if (M.stable > 0.6) { M.startSharp = M.ema; M.empty = 0; setState('aumentando'); }
+    } else {
+      M.stable = 0;
+      if (M.ema < FLOOR * 1.5 && still) {
+        M.blurT += dt;
+        if (M.blurT > 2.2 && canSweep() && !M.sweptHere) { M.sweptHere = true; sweepFocus(); }
+        if (M.blurT > 4.5) { tooCloseHint(); M.blurT = 0; M.sweptHere = false; }
+      } else M.blurT = Math.max(0, M.blurT - dt);
+    }
+  } else if (M.state === 'aumentando') {
+    // Se para en el aumento útil: cuando ampliar más ya no muestra más detalle (la nitidez cae)
+    // o cuando la imagen tendría que estirarse demasiado en la pantalla. Siempre llega al menos a 2×.
+    if (M.ema < 0.3 * M.startSharp) M.empty++; else M.empty = Math.max(0, M.empty - 1);
+    const pastMin = M.Z >= AUTO_MIN - 1e-3;
+    if (pastMin && M.empty >= 3) { setZ(Math.max(AUTO_MIN, M.Z / 1.15)); finishAuto(); return; }
+    if (pastMin && M.css >= cssLimit()) { finishAuto(); return; }
+    if (M.Z >= M.autoMax - 1e-3) { finishAuto(); return; }
+    setZ(Math.min(M.autoMax, M.Z * (1 + 0.55 * dt)));
+  } else if (M.state === 'listo') {
+    M.holdRef = Math.max(M.ema, M.holdRef * 0.996);
+    if (M.ema < 0.35 * M.holdRef) {
+      M.lowT += dt;
+      if (M.lowT > 1.2 && canSweep() && !M.refocused) { M.refocused = true; sweepFocus(); }
+      if (M.lowT > 3.5) reacquire();
+    } else { M.lowT = Math.max(0, M.lowT - dt * 2); if (!M.lowT) M.refocused = false; }
+  }
+}
+
+function loop(ts) {
+  M.raf = requestAnimationFrame(loop);
+  if (ui.scope.hidden) return;
+  const dtF = M.lastTs ? Math.min(0.1, (ts - M.lastTs) / 1000) : 0.016; M.lastTs = ts;
+  M.Zshow += (M.Z - M.Zshow) * Math.min(1, dtF * 9);
+  if (Math.abs(M.Z - M.Zshow) < 0.002) M.Zshow = M.Z;
+  renderZoom();
+  if (!M.frozen && M.track && ts - M.lastAn > 110 && ui.video.readyState >= 2 && ui.video.videoWidth) {
+    const dt = M.lastAn ? Math.min(0.5, (ts - M.lastAn) / 1000) : 0.11;
+    M.lastAn = ts;
+    if (analyze()) autoStep(dt);
+  }
+}
+
+/* ----- Gestos: pellizcar para ampliar, tocar para enfocar ----- */
+const pts = new Map(); let pinch = null, tap = null;
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+ui.stage.addEventListener('pointerdown', e => {
+  if (M.frozen) return;
+  try { ui.stage.setPointerCapture(e.pointerId); } catch (err) {}
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: dist(a, b) || 1, z: M.Z }; tap = null; }
+  else if (pts.size === 1) tap = { x: e.clientX, y: e.clientY, t: performance.now() };
+});
+ui.stage.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return;
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && pts.size >= 2) { const [a, b] = [...pts.values()]; setManualZ(pinch.z * dist(a, b) / pinch.d, true); }
+  if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 12) tap = null;
+});
+const endPointer = e => {
+  if (!pts.has(e.pointerId)) return;
+  pts.delete(e.pointerId);
+  if (tap && !pts.size && e.type === 'pointerup' && performance.now() - tap.t < 450) onTap(tap.x, tap.y);
+  if (pts.size < 2) pinch = null;
+  if (!pts.size) tap = null;
+};
+ui.stage.addEventListener('pointerup', endPointer);
+ui.stage.addEventListener('pointercancel', endPointer);
+ui.stage.addEventListener('wheel', e => { e.preventDefault(); setManualZ(M.Z * (e.deltaY < 0 ? 1.1 : 1 / 1.1), true); }, { passive: false });
+
+function onTap(x, y) {
+  const rect = ui.stage.getBoundingClientRect();
+  const nx = (x - rect.left) / rect.width, ny = (y - rect.top) / rect.height;
+  ui.ring.style.left = (x - rect.left) + 'px'; ui.ring.style.top = (y - rect.top) + 'px';
+  ui.ring.classList.remove('show'); void ui.ring.offsetWidth; ui.ring.classList.add('show');
+  setTimeout(() => ui.ring.classList.remove('show'), 900);
+  M.roi = { x: clamp(nx, 0.15, 0.85), y: clamp(ny, 0.15, 0.85) };
+  M.peak = 0; M.lowT = 0;
+  if (canSweep()) { sweepFocus(); return; }
+  if (M.cap.poi && ui.video.videoWidth) {
+    const r = visibleRect();
+    const fm = M.cap.focusModes.includes('single-shot') ? 'single-shot' : 'continuous';
+    constrain({ pointsOfInterest: [{ x: (r.x + r.w * nx) / r.vw, y: (r.y + r.h * ny) / r.vh }], focusMode: fm }).catch(() => {});
+  } else if (M.cap.focusModes && M.cap.focusModes.includes('single-shot')) {
+    constrain({ focusMode: 'single-shot' }).catch(() => {});
+  } else {
+    hint('Este móvil enfoca por su cuenta. Mantén el pulso firme o apoya el móvil.', 'tapinfo');
+  }
+}
+
+/* ----- Botones del visor ----- */
+ui.btnBack.addEventListener('click', closeScope);
+ui.btnErrBack.addEventListener('click', closeScope);
+ui.btnAuto.addEventListener('click', () => { if (M.auto) stopAuto(); else { startAuto(); hint('Modo automático: acerca el móvil al objeto.', null, 2500); } });
+ui.btnTorch.addEventListener('click', () => { M.torchUser = true; setTorch(!M.torchOn); });
+ui.btnSheet.addEventListener('click', () => {
+  const open = ui.sheet.hidden; ui.sheet.hidden = !open; ui.btnSheet.setAttribute('aria-expanded', String(open)); ui.btnSheet.classList.toggle('is-on', open);
+});
+ui.btnSwitch.addEventListener('click', async () => {
+  if (D.ranked.length < 2) return;
+  const i = D.ranked.findIndex(c => M.cam && c.id === M.cam.id);
+  M.cam = D.ranked[(i + 1) % D.ranked.length];
+  store.set('mm.cam', M.cam.id); updateOpenNote();
+  await startStream();
+  hint(`Cámara: ${M.cam.name}`, null, 2200);
+});
+ui.zoomRange.addEventListener('input', () => setManualZ(rangeToZ(+ui.zoomRange.value), true));
+ui.focusRange.addEventListener('input', () => {
+  if (!canSweep()) return;
+  stopAuto(); M.sweepToken++; M.sweeping = false;
+  const d = snapFocus(rangeToFocus(+ui.focusRange.value));
+  M.focusManual = true; M.focusDist = d; updateFocusUI();
+  throttled('focus', { focusMode: 'manual', focusDistance: d });
+});
+ui.btnAF.addEventListener('click', () => { setFocusContinuous(); if (canSweep()) sweepFocus(); });
+ui.expRange.addEventListener('input', () => { const v = +ui.expRange.value; ui.expOut.textContent = signed(v); throttled('exp', { exposureCompensation: v }); });
+
+function applyOpts() {
+  ui.optOcular.checked = !!M.opts.ocular; ui.optRealce.checked = !!M.opts.realce; ui.optReticula.checked = !!M.opts.reticula;
+  ui.ocular.hidden = !M.opts.ocular;
+  ui.video.classList.toggle('realce', !!M.opts.realce);
+  ui.reticle.style.display = M.opts.reticula ? '' : 'none';
+}
+[['optOcular', 'ocular'], ['optRealce', 'realce'], ['optReticula', 'reticula']].forEach(([id, k]) => {
+  ui[id].addEventListener('change', () => { M.opts[k] = ui[id].checked; store.set('mm.opts', M.opts); applyOpts(); });
+});
+
+/* ----- Captura ----- */
+function stamp() { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
+function capture() {
+  if (!ui.video.videoWidth || M.frozen) return;
+  const r = visibleRect();
+  const f = clamp(1080 / Math.min(r.w, r.h), 1, 4);
+  const W = Math.round(r.w * f), H = Math.round(r.h * f);
+  const c = ui.still; c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  if (M.opts.realce && 'filter' in ctx) ctx.filter = 'contrast(1.25) saturate(1.15) brightness(1.03)';
+  ctx.drawImage(ui.video, r.x, r.y, r.w, r.h, 0, 0, W, H);
+  ctx.filter = 'none';
+  M.frozen = true; M.sweepToken++; M.sweeping = false;
+  ui.still.hidden = false; ui.bottom.hidden = true; ui.freeze.hidden = false; setStatus('congelado');
+  ui.freezeInfo.textContent = `${nf(M.Zshow, 1)}× · ${W} × ${H} px`;
+  M.shotName = `microscopio-${stamp()}.jpg`;
+  M.blob = null; c.toBlob(b => { M.blob = b; }, 'image/jpeg', 0.92);
+  let share = false;
+  try { share = !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'], { type: 'image/jpeg' })], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) {}
+  ui.btnShare.hidden = !share;
+}
+function getBlob() { return M.blob ? Promise.resolve(M.blob) : new Promise(r => ui.still.toBlob(r, 'image/jpeg', 0.92)); }
+function resume() {
+  M.frozen = false; ui.still.hidden = true; ui.freeze.hidden = true; ui.bottom.hidden = false;
+  M.peak = 0; M.lowT = 0; setStatus(M.auto ? M.state : 'manual');
+}
+ui.btnShot.addEventListener('click', capture);
+ui.btnResume.addEventListener('click', resume);
+ui.btnSave.addEventListener('click', async () => {
+  const b = await getBlob(); if (!b) return;
+  const url = URL.createObjectURL(b), a = document.createElement('a');
+  a.href = url; a.download = M.shotName; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  hint(isIOS ? 'Descarga iniciada. En iPhone la encontrarás en Archivos › Descargas.' : 'Imagen guardada en Descargas.', null, 3000);
+});
+ui.btnShare.addEventListener('click', async () => {
+  const b = await getBlob(); if (!b) return;
+  try { await navigator.share({ files: [new File([b], M.shotName, { type: 'image/jpeg' })], title: 'Microscopio Móvil' }); } catch (e) {}
+});
+
+/* ----- Pantalla encendida y segundo plano ----- */
+async function requestWakeLock() { try { if ('wakeLock' in navigator && !document.hidden && !M.wake) { M.wake = await navigator.wakeLock.request('screen'); M.wake.addEventListener('release', () => { M.wake = null; }); } } catch (e) {} }
+function releaseWakeLock() { try { M.wake && M.wake.release(); } catch (e) {} M.wake = null; }
+document.addEventListener('visibilitychange', () => {
+  if (ui.scope.hidden) return;
+  if (document.hidden) { M.resumeOnShow = !!M.stream; stopStreamOnly(); }
+  else if (M.resumeOnShow) { M.resumeOnShow = false; resume(); startStream(); }
+});
+
+/* ----- Retícula (graticula sin calibrar, como la de un ocular) ----- */
+(function buildReticle() {
+  const lines = [];
+  for (let x = 20; x <= 80; x += 2) { const h = (x - 20) % 10 === 0 ? 2.6 : 1.2; lines.push([x, 50 - h, x, 50 + h]); }
+  lines.push([20, 50, 80, 50], [50, 42, 50, 58]);
+  const draw = (stroke, w) => lines.map(([a, b, c, d]) => `<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="${stroke}" stroke-width="${w}" vector-effect="non-scaling-stroke"/>`).join('');
+  ui.reticle.innerHTML = `<g stroke-linecap="round">${draw('rgba(0,0,0,.45)', 3)}${draw('rgba(255,255,255,.85)', 1)}</g>`;
+})();
+
+/* ================= Inicio ================= */
+const saved = store.get('mm.analysis');
+if (saved && Array.isArray(saved.cams) && saved.cams.length) { renderResults(saved); ui.btnAnalyze.textContent = 'Volver a analizar'; }
+if (!secureOk()) insecureNotice();
+if (/[?&]debug/.test(location.search)) window.__mm = M;
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
