@@ -217,6 +217,11 @@ h2{margin:0;font:600 1.55rem/1.15 var(--f-display);text-wrap:balance}
         <dl id="deviceList" class="specs"></dl>
         <h3 class="sub">Cámaras detectadas <span id="when" class="when"></span></h3>
         <div id="camList" class="cam-list"></div>
+        <div id="nativeBlock" class="step" style="border-top:0;padding-top:0" hidden>
+          <h3 class="sub">Ficha técnica completa (datos de Android)</h3>
+          <p class="fine">Todas las cámaras que declara el sistema, también las que forman parte de otra o están ocultas. Solo las marcadas como disponibles se pueden usar en el visor.</p>
+          <div id="nativeList" class="cam-list"></div>
+        </div>
         <details class="raw"><summary>Datos técnicos completos</summary><pre id="rawJson"></pre></details>
       </div>
     </section>
@@ -232,7 +237,7 @@ h2{margin:0;font:600 1.55rem/1.15 var(--f-display);text-wrap:balance}
       <p id="openNote" class="fine">Sin análisis previo se usará la cámara trasera principal.</p>
     </section>
 
-    <footer class="foot">Funciona en Chrome para Android y en Safari para iPhone. Las imágenes no salen de tu teléfono salvo que tú las compartas.</footer>
+    <footer id="foot" class="foot">Funciona en Chrome para Android y en Safari para iPhone. Las imágenes no salen de tu teléfono salvo que tú las compartas.</footer>
   </div>
 </main>
 
@@ -327,10 +332,12 @@ const store = {
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const stopStream = s => { try { s && s.getTracks().forEach(t => t.stop()); } catch (e) {} };
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+const NATIVE = (window.Android && typeof window.Android.cameraInfo === 'function') ? window.Android : null;  // dentro del APK
+const nativeJSON = fn => { try { return JSON.parse(NATIVE[fn]()); } catch (e) { return null; } };
 const fmtDist = m => !isFinite(m) ? '∞' : m < 1 ? `${nf(m * 100, m < 0.1 ? 1 : 0)} cm` : `${nf(m, 1)} m`;
 
 const ui = {};
-['notice','btnAnalyze','progress','progressText','progressFill','results','summary','deviceList','camList','rawJson','when','btnOpen','openNote',
+['notice','nativeBlock','nativeList','foot','btnAnalyze','progress','progressText','progressFill','results','summary','deviceList','camList','rawJson','when','btnOpen','openNote',
  'diag','scope','stage','video','still','reticle','ocular','ring','btnBack','status','statusText','camName','hint','bottom','magVal','sharpFill','focusInfo',
  'sheet','zoomRange','zoomOut','focusField','focusRange','focusOut','btnAF','expField','expRange','expOut','optOcular','optRealce','optReticula',
  'btnAuto','btnTorch','btnShot','btnSheet','btnSwitch','freeze','freezeInfo','btnSave','btnShare','btnResume','scopeError','scopeErrorText','btnErrBack'
@@ -354,6 +361,16 @@ async function deviceInfo() {
   const ua = navigator.userAgent;
   const info = { modelo: null, sistema: null, navegador: null,
     pantalla: `${screen.width} × ${screen.height} puntos · densidad ${nf(devicePixelRatio, devicePixelRatio % 1 ? 2 : 0)}×` };
+  if (NATIVE) {
+    const n = nativeJSON('deviceInfo');
+    if (n) {
+      const wv = (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1];
+      info.modelo = `${capFirst(String(n.fabricante || ''))} ${n.modelo || ''}`.trim();
+      info.sistema = `Android ${n.android} (API ${n.api})`;
+      info.navegador = `App Microscopio ${n.version || ''}${wv ? ' · WebView ' + wv : ''}`;
+      return info;
+    }
+  }
   const uad = navigator.userAgentData;
   if (uad && uad.getHighEntropyValues) {
     try {
@@ -484,6 +501,7 @@ function scoreCam(r) {
   const mp = r.videoMax ? r.videoMax.mp : 0;
   s += Math.min(8, mp); if (mp >= 8) why.push('graba en 4K, que da más detalle al ampliar');
   if (r.torch) { s += 5; why.push('tiene linterna'); }
+  if (r.ois) { s += 3; why.push('tiene estabilizador óptico'); }
   if (isIOS && r.lens === 'ultra') { s += 10; why.push('en los iPhone Pro el gran angular enfoca a muy poca distancia'); }
   if (isIOS && (r.lens === 'triple' || r.lens === 'dualwide')) { s += 12; why.push('puede cambiar de lente automáticamente al acercarse'); }
   if (r.lens === 'tele') { s -= 15; why.push('el teleobjetivo no enfoca de cerca'); }
@@ -511,6 +529,73 @@ function camRows(c) {
   return rows;
 }
 
+/* ----- Datos nativos de Android (solo en el APK) ----- */
+function nativeKind(n) {
+  const eq = n.focalEquiv35, cm = n.enfoqueMinCm, mp = n.megapixeles || 0, caps = n.capacidades || [];
+  if ((n.fisicas || []).length) return 'multicámara';
+  if (caps.includes('profundidad') || caps.includes('monocromo')) return 'profundidad';
+  if (cm && cm <= 4.5 && mp <= 5.5) return 'macro';
+  if (!cm && n.enfoqueMinDioptrias === 0 && mp <= 5.5) return 'foco fijo (macro o profundidad)';
+  if (eq && eq < 20) return 'gran angular';
+  if (eq && eq > 45) return 'teleobjetivo';
+  return 'principal';
+}
+function mergeNative(cams, nat) {
+  const byId = new Map(nat.map(n => [String(n.id), n]));
+  cams.forEach(c => {
+    const m = c.label.match(/camera2?\s*(\d+)/i);
+    const n = m && byId.get(m[1]);
+    if (!n) return;
+    n.enVisor = true; n.nombreVisor = c.name;
+    c.nativeId = String(n.id);
+    if (n.enfoqueMinCm && (!c.minFocusCm || n.enfoqueCalibrado)) c.minFocusCm = n.enfoqueMinCm;
+    if (n.ois) c.ois = true;
+    if (c.facing === 'environment' && !c.lens) {
+      const k = nativeKind(n);
+      c.lens = k === 'macro' ? 'macro' : k === 'gran angular' ? 'ultra' : k === 'teleobjetivo' ? 'tele' : '';
+      c.name = niceName(c); n.nombreVisor = c.name;
+    }
+    Object.assign(c, scoreCam(c));
+  });
+}
+const afEs = a => (a || []).length ? capFirst(listEs(a)) : 'Sin autoenfoque';
+function nativeRows(n) {
+  const rows = [];
+  if (n.megapixeles) rows.push(['Sensor', `${nf(n.megapixeles, 1)} MP${n.pixeles ? ` · ${n.pixeles[0]} × ${n.pixeles[1]}` : ''}${n.sensorMm ? ` · ${nf(n.sensorMm[0], 2)} × ${nf(n.sensorMm[1], 2)} mm` : ''}`]);
+  if (n.focalMm) rows.push(['Objetivo', `${n.focalMm.map(f => nf(f, 2)).join(' / ')} mm${n.focalEquiv35 ? ` (equivale a ${n.focalEquiv35} mm)` : ''}${n.aperturas ? ` · f/${n.aperturas.map(a => nf(a, 1)).join(', f/')}` : ''}`]);
+  if (n.campoGrados) rows.push(['Campo de visión', `${n.campoGrados}°`]);
+  rows.push(['Enfoca desde', n.enfoqueMinCm ? `≈ ${nf(n.enfoqueMinCm, n.enfoqueMinCm < 10 ? 1 : 0)} cm${n.enfoqueCalibrado ? '' : ' (dato aproximado)'}` : 'Foco fijo']);
+  rows.push(['Modos de enfoque', afEs(n.af)]);
+  rows.push(['Estabilizador óptico', n.ois ? 'Sí' : 'No']);
+  rows.push(['Flash', n.flash ? 'Sí' : 'No']);
+  if (n.zoomRango) rows.push(['Zoom del sistema', `${nf(n.zoomRango[0], 1)}× a ${nf(n.zoomRango[1], 1)}×`]);
+  else if (n.zoomDigitalMax) rows.push(['Zoom digital', `hasta ${nf(n.zoomDigitalMax, 1)}×`]);
+  if (n.fotoMax) rows.push(['Foto máxima', `${n.fotoMax[0]} × ${n.fotoMax[1]}`]);
+  if (n.iso) rows.push(['ISO', `${n.iso[0]} – ${n.iso[1]}`]);
+  if (n.exposicionSeg) { const [a, b] = n.exposicionSeg; rows.push(['Exposición', `${a > 0 ? '1/' + Math.round(1 / a) : nf(a, 4)} s a ${b >= 1 ? nf(b, 1) : '1/' + Math.round(1 / b)} s`]); }
+  rows.push(['Nivel Camera2', capFirst(n.nivel || '—')]);
+  if ((n.capacidades || []).length) rows.push(['Capacidades', capFirst(listEs(n.capacidades))]);
+  if ((n.fisicas || []).length) rows.push(['Formada por', 'cámaras ' + listEs(n.fisicas.map(String))]);
+  return rows;
+}
+function renderNative(nat) {
+  if (!nat || !nat.length) { ui.nativeBlock.hidden = true; return; }
+  const ord = { trasera: 0, externa: 1, desconocida: 2, frontal: 3 };
+  const list = [...nat].sort((a, b) => (b.enVisor ? 1 : 0) - (a.enVisor ? 1 : 0) || (ord[a.orientacion] - ord[b.orientacion]) || (+a.id - +b.id));
+  ui.nativeList.innerHTML = list.map(n => {
+    const k = nativeKind(n);
+    const access = n.enVisor ? `Disponible en el visor como «${n.nombreVisor || 'cámara ' + n.id}»`
+      : n.acceso === 'fisica' ? `Forma parte de la cámara ${n.parteDe}: el sistema la activa solo al cambiar el zoom o al acercarse`
+      : n.acceso === 'oculta' ? 'Oculta: Android solo la deja usar a la app de cámara del fabricante'
+      : 'Declarada por Android, pero el visor no la recibe';
+    const chip = k === 'macro' ? '<span class="chip">Macro</span>' : n.enVisor ? '<span class="chip off">En el visor</span>' : '';
+    return `<article class="cam${n.enVisor ? '' : ' is-front'}">
+      <div class="cam-head"><div><h3>${esc(capFirst(n.orientacion))} · ${esc(k)}</h3><p class="cam-label">id ${esc(n.id)} · ${esc(access)}</p></div>${chip}</div>
+      <dl class="specs">${dl(nativeRows(n))}</dl></article>`;
+  }).join('');
+  ui.nativeBlock.hidden = false;
+}
+
 const dl = rows => rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
 
 function renderResults(data) {
@@ -528,11 +613,16 @@ function renderResults(data) {
 
   const rec = D.rec;
   const hasMacro = D.cams.some(c => c.lens === 'macro');
+  const nativeMacro = (data.native || []).filter(n => nativeKind(n) === 'macro' && n.orientacion === 'trasera');
+  const macroOut = nativeMacro.filter(n => !n.enVisor);
   ui.summary.innerHTML = rec ? `
     <p class="sum-k">Recomendada para microscopio</p>
     <p class="sum-name">${esc(rec.name)}</p>
     <p>${rec.reasons.length ? esc(capFirst(listEs(rec.reasons))) + '.' : 'Es la cámara trasera con mejores prestaciones que deja usar el navegador.'}</p>
-    <p class="fine">${hasMacro ? 'Se ha detectado una cámara macro.' : 'Muchos móviles no dejan usar su cámara macro desde el navegador; aquí solo aparecen las cámaras que el sistema permite.'}</p>
+    <p class="fine">${hasMacro ? 'Se ha detectado una cámara macro y se puede usar en el visor.'
+      : macroOut.length ? `Tu móvil tiene una cámara macro (id ${esc(macroOut.map(n => n.id).join(', '))}), pero Android no deja que otras apps la usen. El visor usa la mejor de las disponibles.`
+      : NATIVE ? 'Android no declara ninguna cámara macro en este móvil.'
+      : 'Muchos móviles no dejan usar su cámara macro desde el navegador; aquí solo aparecen las cámaras que el sistema permite.'}</p>
     <button class="btn btn-primary" type="button" data-open="${esc(rec.id)}">Abrir microscopio</button>`
     : `<p class="sum-k">Sin cámara utilizable</p><p>No se ha podido abrir ninguna cámara. Cierra otras apps que usen la cámara y vuelve a analizar.</p>`;
 
@@ -551,7 +641,10 @@ function renderResults(data) {
     </article>`;
   }).join('');
 
-  ui.rawJson.textContent = JSON.stringify(D.cams.map(c => ({ etiqueta: c.label, capacidades: c.caps, ajustesActuales: c.settings, foto: c.photo, error: c.error })), null, 2);
+  renderNative(data.native);
+  const raw = { navegador: D.cams.map(c => ({ etiqueta: c.label, capacidades: c.caps, ajustesActuales: c.settings, foto: c.photo, error: c.error })) };
+  if (data.native) raw.android = data.native;
+  ui.rawJson.textContent = JSON.stringify(data.native ? raw : raw.navegador, null, 2);
   ui.when.textContent = data.when ? '· ' + new Date(data.when).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '';
   ui.results.hidden = false;
   updateOpenNote();
@@ -576,8 +669,15 @@ ui.btnAnalyze.addEventListener('click', async () => {
   try {
     const device = await deviceInfo();
     const cams = await probeAll((i, n, label) => setProgress((i + 0.5) / n, `Analizando cámara ${i + 1} de ${n} · ${label}`));
+    let native = null;
+    if (NATIVE) {
+      setProgress(0.98, 'Leyendo la ficha técnica de Android…');
+      const nj = nativeJSON('cameraInfo');
+      native = nj && Array.isArray(nj.camaras) ? nj.camaras : null;
+      if (native) mergeNative(cams, native);
+    }
     setProgress(1, `Listo: ${cams.length} cámaras analizadas.`);
-    const data = { when: Date.now(), device, cams };
+    const data = { when: Date.now(), device, cams, native };
     store.set('mm.analysis', data);
     renderResults(data);
     ui.summary.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1097,8 +1197,8 @@ function capture() {
   ui.freezeInfo.textContent = `${nf(M.Zshow, 1)}× · ${W} × ${H} px`;
   M.shotName = `microscopio-${stamp()}.jpg`;
   M.blob = null; c.toBlob(b => { M.blob = b; }, 'image/jpeg', 0.92);
-  let share = false;
-  try { share = !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'], { type: 'image/jpeg' })], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) {}
+  let share = !!NATIVE;
+  if (!share) try { share = !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'], { type: 'image/jpeg' })], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) {}
   ui.btnShare.hidden = !share;
 }
 function getBlob() { return M.blob ? Promise.resolve(M.blob) : new Promise(r => ui.still.toBlob(r, 'image/jpeg', 0.92)); }
@@ -1109,6 +1209,11 @@ function resume() {
 ui.btnShot.addEventListener('click', capture);
 ui.btnResume.addEventListener('click', resume);
 ui.btnSave.addEventListener('click', async () => {
+  if (NATIVE) {
+    const r = NATIVE.saveImage(ui.still.toDataURL('image/jpeg', 0.92), M.shotName);
+    hint(r === 'ok' ? 'Guardada en la galería, en la carpeta Microscopio.' : 'No se ha podido guardar la imagen.', null, 3000);
+    return;
+  }
   const b = await getBlob(); if (!b) return;
   const url = URL.createObjectURL(b), a = document.createElement('a');
   a.href = url; a.download = M.shotName; document.body.appendChild(a); a.click(); a.remove();
@@ -1116,6 +1221,7 @@ ui.btnSave.addEventListener('click', async () => {
   hint(isIOS ? 'Descarga iniciada. En iPhone la encontrarás en Archivos › Descargas.' : 'Imagen guardada en Descargas.', null, 3000);
 });
 ui.btnShare.addEventListener('click', async () => {
+  if (NATIVE) { NATIVE.shareImage(ui.still.toDataURL('image/jpeg', 0.92), M.shotName); return; }
   const b = await getBlob(); if (!b) return;
   try { await navigator.share({ files: [new File([b], M.shotName, { type: 'image/jpeg' })], title: 'Microscopio Móvil' }); } catch (e) {}
 });
@@ -1143,7 +1249,14 @@ const saved = store.get('mm.analysis');
 if (saved && Array.isArray(saved.cams) && saved.cams.length) { renderResults(saved); ui.btnAnalyze.textContent = 'Volver a analizar'; }
 if (!secureOk()) insecureNotice();
 if (/[?&]debug/.test(location.search)) window.__mm = M;
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+// Botón atrás de Android: cierra la captura o el visor antes de salir de la app.
+window.__back = () => {
+  if (ui.scope.hidden) return false;
+  if (M.frozen) resume(); else if (!ui.sheet.hidden) ui.btnSheet.click(); else closeScope();
+  return true;
+};
+if (NATIVE) ui.foot.textContent = 'Versión para Android. Las fotos se guardan en la galería, carpeta Microscopio. Las imágenes no salen del teléfono salvo que tú las compartas.';
+else if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
 </body>

@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+def runNumber = Integer.parseInt(System.getenv('GITHUB_RUN_NUMBER') ?: '1')
+
+android {
+    namespace 'es.ricardopch.microscopio'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'es.ricardopch.microscopio'
+        minSdk 29
+        targetSdk 35
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    // Clave de firma fija para que cada versión nueva se instale encima de la anterior.
+    // Solo sirve para instalar la app a mano; no es para publicarla en Google Play.
+    signingConfigs {
+        release {
+            storeFile file('microscopio.jks')
+            storePassword 'microscopio'
+            keyAlias 'microscopio'
+            keyPassword 'microscopio'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}

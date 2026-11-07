@@ -1,0 +1,52 @@
+name: Construir APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Meter la app web dentro del APK
+        run: |
+          mkdir -p android/app/src/main/assets
+          cp index.html manifest.webmanifest icon-192.png icon-512.png android/app/src/main/assets/
+
+      - name: Compilar
+        working-directory: android
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Preparar el archivo
+        run: cp android/app/build/outputs/apk/release/app-release.apk Microscopio.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Microscopio-apk
+          path: Microscopio.apk
+
+      - name: Publicar en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Microscopio 1.0.${{ github.run_number }}
+          body: |
+            APK de Microscopio Móvil para Android 10 o posterior.
+            Descarga **Microscopio.apk** desde el móvil, ábrelo y permite instalar apps de esta fuente si Android lo pide.
+          files: Microscopio.apk
+          make_latest: true

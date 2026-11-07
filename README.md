@@ -1,5 +1,18 @@
 # Microscopio Móvil
 
+**Descargar la app para Android:** [Microscopio.apk (última versión)](https://github.com/ricardopch/microscopio/releases/latest/download/Microscopio.apk) · **Usarla en el navegador:** https://ricardopch.github.io/microscopio/
+
+## Instalar el APK en Android
+
+1. Desde el móvil, abre el enlace de descarga de arriba (o la página *Releases* del repositorio) y descarga `Microscopio.apk`.
+2. Ábrelo desde la notificación de descarga o desde *Archivos › Descargas*.
+3. Si Android avisa de que no puede instalar apps de esa fuente, pulsa **Ajustes**, activa **Permitir de esta fuente** y vuelve atrás.
+4. Pulsa **Instalar**. Requiere Android 10 o posterior.
+
+Cada cambio que se sube a la rama `main` genera un APK nuevo en *Releases* (lo compila GitHub Actions con el flujo `.github/workflows/apk.yml`). Las versiones nuevas se instalan encima de la anterior sin perder nada.
+
+La versión APK añade a la web: ficha técnica completa de todas las cámaras que declara Android (sensor, focal, apertura, campo de visión, estabilizador, cámaras físicas y ocultas, cámara macro), guardar las fotos en la galería (carpeta *Microscopio*), compartir y botón atrás.
+
 App web para el móvil (Android con Chrome, iPhone con Safari) que:
 
 1. **Identifica las cámaras** del teléfono y sus prestaciones: resolución de vídeo y foto, fotogramas por segundo, zoom, tipo de enfoque, distancia mínima de enfoque, linterna, exposición, balance de blancos, ISO. Puntúa cada cámara y recomienda la mejor para usar como microscopio.
