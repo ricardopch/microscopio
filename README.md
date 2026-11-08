@@ -11,7 +11,9 @@
 
 Cada cambio que se sube a la rama `main` genera un APK nuevo en *Releases* (lo compila GitHub Actions con el flujo `.github/workflows/apk.yml`). Las versiones nuevas se instalan encima de la anterior sin perder nada.
 
-La versión APK añade a la web: ficha técnica completa de todas las cámaras que declara Android (sensor, focal, apertura, campo de visión, estabilizador, cámaras físicas y ocultas, cámara macro), guardar las fotos en la galería (carpeta *Microscopio*), compartir y botón atrás.
+En el visor, la **rueda del borde derecho** controla el aumento: sube el dedo para ampliar y bájalo para reducir (también con los botones + y −). Mientras la usas, el enfoque sigue siendo automático. La barra fina junto a la rueda indica el aumento; la parte rayada es la zona digital, por encima del zoom real de la cámara.
+
+La versión APK usa la cámara del teléfono directamente: zoom real de la cámara (con cambio de lente si el teléfono lo permite, incluido el gran angular por debajo de 1×), digital por encima hasta 40×, autoenfoque del sistema y fotos a resolución completa. También añade a la web: ficha técnica completa de todas las cámaras que declara Android (sensor, focal, apertura, campo de visión, estabilizador, cámaras físicas y ocultas, cámara macro), guardar las fotos en la galería (carpeta *Microscopio*), compartir y botón atrás.
 
 App web para el móvil (Android con Chrome, iPhone con Safari) que:
 

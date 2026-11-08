@@ -124,9 +124,10 @@ h2{margin:0;font:600 1.55rem/1.15 var(--f-display);text-wrap:balance}
 .status i{width:8px;height:8px;border-radius:50%;background:var(--lamp);flex:none}
 .status[data-s="buscando"] i,.status[data-s="enfocando"] i{animation:pulse 1s ease-in-out infinite}
 .status[data-s="aumentando"] i,.status[data-s="listo"] i{background:var(--ok)}
-.status[data-s="manual"] i,.status[data-s="congelado"] i{background:#a7b4b8}
+.status[data-s="congelado"] i,.status[data-s="guardando"] i{background:#a7b4b8}
+.status[data-s="guardando"] i{animation:pulse 1s ease-in-out infinite}
 .cam-name{margin-left:auto;min-width:0;font:400 .74rem/1.25 var(--f-mono);color:rgba(255,255,255,.72);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hint{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 72px);width:min(calc(100% - 28px),440px);transform:translate(-50%,-6px);
+.hint{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 72px);width:min(calc(100% - 140px),440px);transform:translate(-50%,-6px);
   background:rgba(10,14,16,.88);border:1px solid rgba(255,181,71,.5);border-radius:12px;padding:10px 14px;font-size:.93rem;line-height:1.38;text-align:center;
   opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
 .hint.show{opacity:1;transform:translate(-50%,0)}
@@ -178,6 +179,24 @@ h2{margin:0;font:600 1.55rem/1.15 var(--f-display);text-wrap:balance}
 .scope-error{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;background:var(--ink);
   padding-block:24px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
 .scope-error p{margin:0;max-width:40ch;color:var(--text)}
+/* Rueda de aumento: un cilindro estriado paralelo al borde derecho del teléfono */
+.wheel{position:absolute;right:max(10px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 76px);bottom:calc(var(--bottom-h,190px) + 12px);width:50px;display:flex;flex-direction:column;justify-content:center;z-index:2;touch-action:none;user-select:none;-webkit-user-select:none}
+.wheel-stack{position:relative;height:100%;max-height:500px;display:flex;flex-direction:column;gap:6px}
+.wheel-end{appearance:none;flex:none;height:44px;border:0;border-radius:14px;background:rgba(10,14,16,.62);color:#fff;font:500 1.55rem/1 var(--f-mono);cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);touch-action:none}
+.wheel-end:active{background:var(--lamp);color:var(--lamp-ink)}
+.wheel-body{position:relative;flex:1;min-height:110px;border-radius:25px;overflow:hidden;cursor:ns-resize;background:#0b1013;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 6px 22px rgba(0,0,0,.55);touch-action:none}
+.wheel-body canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.wheel-level{position:absolute;left:-13px;top:50px;bottom:50px;width:4px;border-radius:2px;background:rgba(255,255,255,.24);overflow:hidden;pointer-events:none}
+.wheel-level i{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--lamp)}
+.wheel-level b{position:absolute;left:0;right:0;top:0;bottom:var(--hw,100%);z-index:1;background:repeating-linear-gradient(180deg,rgba(0,0,0,.6) 0 3px,transparent 3px 6px)}
+.wheel-tag{position:absolute;right:calc(100% + 24px);top:50%;transform:translate(8px,-50%);display:flex;flex-direction:column;align-items:flex-end;gap:4px;padding:9px 13px;border-radius:12px;background:rgba(10,14,16,.88);border:1px solid rgba(255,181,71,.55);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;white-space:nowrap}
+.wheel-tag.show{opacity:1;transform:translate(0,-50%)}
+.wheel-tag span{font:500 1.7rem/1 var(--f-mono);font-variant-numeric:tabular-nums;color:#fff}
+.wheel-tag small{font:600 .7rem/1 var(--f-display);letter-spacing:.13em;text-transform:uppercase;color:var(--lamp)}
+.wheel-tag small:empty{display:none}
+/* En el APK la imagen de la cámara se dibuja detrás de la página */
+html.native-scope,html.native-scope body,html.native-scope .scope{background:transparent!important}
+html.native-scope .stage video{display:none}
 @keyframes pulse{50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -245,6 +264,7 @@ h2{margin:0;font:600 1.55rem/1.15 var(--f-display);text-wrap:balance}
   <div id="stage" class="stage">
     <video id="video" playsinline muted autoplay></video>
     <canvas id="still" class="still" hidden></canvas>
+    <img id="stillImg" class="still" alt="Imagen capturada" hidden>
     <svg id="reticle" class="reticle" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
     <div id="ocular" class="ocular" hidden></div>
     <div id="ring" class="ring"></div>
@@ -259,6 +279,18 @@ h2{margin:0;font:600 1.55rem/1.15 var(--f-display);text-wrap:balance}
   </div>
 
   <div id="hint" class="hint" role="status" aria-live="polite"></div>
+
+  <div id="wheel" class="wheel" hidden>
+    <div class="wheel-stack">
+      <button id="wheelUp" class="wheel-end" type="button" aria-label="Más aumento">+</button>
+      <div id="wheelBody" class="wheel-body" role="slider" tabindex="0" aria-label="Rueda de aumento" aria-orientation="vertical" aria-valuemin="1" aria-valuemax="40" aria-valuenow="1" aria-valuetext="1,0×">
+        <canvas id="wheelCanvas"></canvas>
+      </div>
+      <button id="wheelDown" class="wheel-end" type="button" aria-label="Menos aumento">−</button>
+      <div class="wheel-level" aria-hidden="true"><b></b><i id="wheelFill"></i></div>
+      <div id="wheelTag" class="wheel-tag" aria-hidden="true"><span id="wheelTagZ">1,0×</span><small id="wheelTagSub"></small></div>
+    </div>
+  </div>
 
   <div id="bottom" class="bottom">
     <div class="readout">
@@ -339,6 +371,7 @@ const fmtDist = m => !isFinite(m) ? '∞' : m < 1 ? `${nf(m * 100, m < 0.1 ? 1 :
 const ui = {};
 ['notice','nativeBlock','nativeList','foot','btnAnalyze','progress','progressText','progressFill','results','summary','deviceList','camList','rawJson','when','btnOpen','openNote',
  'diag','scope','stage','video','still','reticle','ocular','ring','btnBack','status','statusText','camName','hint','bottom','magVal','sharpFill','focusInfo',
+ 'stillImg','wheel','wheelBody','wheelCanvas','wheelUp','wheelDown','wheelFill','wheelTag','wheelTagZ','wheelTagSub',
  'sheet','zoomRange','zoomOut','focusField','focusRange','focusOut','btnAF','expField','expRange','expOut','optOcular','optRealce','optReticula',
  'btnAuto','btnTorch','btnShot','btnSheet','btnSwitch','freeze','freezeInfo','btnSave','btnShare','btnResume','scopeError','scopeErrorText','btnErrBack'
 ].forEach(id => ui[id] = document.getElementById(id));
@@ -550,6 +583,7 @@ function mergeNative(cams, nat) {
     c.nativeId = String(n.id);
     if (n.enfoqueMinCm && (!c.minFocusCm || n.enfoqueCalibrado)) c.minFocusCm = n.enfoqueMinCm;
     if (n.ois) c.ois = true;
+    if (!c.zoom && n.zoomRango && n.zoomRango[1] > n.zoomRango[0]) c.zoom = { min: n.zoomRango[0], max: n.zoomRango[1] };
     if (c.facing === 'environment' && !c.lens) {
       const k = nativeKind(n);
       c.lens = k === 'macro' ? 'macro' : k === 'gran angular' ? 'ultra' : k === 'teleobjetivo' ? 'tele' : '';
@@ -707,21 +741,24 @@ function insecureNotice() {
 /* ================= 2. Microscopio ================= */
 const FLOOR = 12;               // nitidez mínima para considerar que hay detalle
 const AUTO_MIN = 2;             // aumento mínimo que aplica el modo automático
-const AN = 160;                 // lado del recorte que se analiza
-const anCanvas = document.createElement('canvas'); anCanvas.width = anCanvas.height = AN;
+const ZMAX_MIN = 40;            // aumento máximo (por encima del zoom real de la cámara es digital)
+const AN = 160;                 // lado máximo del recorte que se analiza
+const anCanvas = document.createElement('canvas');
 const actx = anCanvas.getContext('2d', { willReadFrequently: true });
-const gray = new Float32Array(AN * AN);
-let prevGray = null;
+let gray = new Float32Array(AN * AN), prevGray = null;
 let cq = Promise.resolve();
+// En el APK el visor usa la cámara del teléfono directamente: zoom real y autoenfoque del sistema.
+const NATIVE_SCOPE = !!(NATIVE && typeof NATIVE.openScope === 'function');
 
 const M = {
-  cam: null, stream: null, track: null, cap: {},
-  Z: 1, Zshow: 1, Zmin: 1, Zmax: 8, autoMax: 4, css: 1,
-  hwMin: 1, hwMax: 1, hwBase: 1, hwApplied: 1, hwPending: false, hwLast: 0, hwFail: 0,
-  auto: true, state: 'buscando', frozen: false, sweeping: false, sweepToken: 0,
+  native: false, ready: false, cam: null, stream: null, track: null, cap: {}, nativeId: '', nativeCams: [],
+  Z: 1, Zshow: 1, Zmin: 1, Zmax: ZMAX_MIN, autoMax: 4, css: 1, vw: 0, vh: 0,
+  hwMin: 1, hwMax: 1, hwBase: 1, hwApplied: 1, hwPending: false, hwLast: 0, hwFail: 0, hwTimer: 0, lastDigital: 0,
+  autoZoom: true, state: 'buscando', shown: '', frozen: false, capturing: false, sweeping: false, sweepToken: 0,
   sharp: 0, ema: 0, emaPrev: 0, peak: 0, bright: 128, motion: 0, prevZ: 1,
-  stable: 0, blurT: 0, lowT: 0, startSharp: 0, holdRef: 0, empty: 0, sweptHere: false, refocused: false,
-  torchOn: false, torchUser: false, darkT: 0, focusManual: false, focusDist: null, minFocusCm: null,
+  stable: 0, lowT: 0, startSharp: 0, holdRef: 0, refZ: 1, empty: 0, refocused: false, digitalHinted: false,
+  torchOn: false, torchUser: false, darkT: 0, focusManual: false, userFocus: false, focusDist: null, minFocusCm: null,
+  af: 0, fd: -1, fdCal: false, lastFocusTxt: 0, sample: null, lastSampleT: 0, afBack: 0,
   roi: { x: 0.5, y: 0.5 }, waiters: [], th: {}, raf: 0, lastTs: 0, lastAn: 0, lastTr: '', lastMag: '', wake: null, resumeOnShow: false,
   opts: Object.assign({ ocular: false, realce: false, reticula: true }, store.get('mm.opts') || {})
 };
@@ -732,9 +769,16 @@ function showScreen(name) {
   document.body.classList.toggle('in-scope', name === 'scope');
 }
 
-const statusNames = { buscando: 'Buscando enfoque', enfocando: 'Enfocando…', aumentando: 'Ampliando', listo: 'Enfocado', manual: 'Manual', congelado: 'Capturada' };
-function setStatus(s) { ui.status.dataset.s = s; ui.statusText.textContent = statusNames[s] || s; }
-function setState(s) { M.state = s; if (!M.sweeping && !M.frozen) setStatus(s); }
+const statusNames = { buscando: 'Buscando enfoque', enfocando: 'Enfocando…', aumentando: 'Ampliando', listo: 'Enfocado', congelado: 'Capturada', guardando: 'Guardando foto…' };
+function setStatus(s) { M.shown = s; ui.status.dataset.s = s; ui.statusText.textContent = statusNames[s] || s; }
+function setState(s) { M.state = s; updateStatus(); }
+function afScanning() { return M.native && (M.af === 1 || M.af === 3); }
+function updateStatus() {
+  if (M.sweeping || M.frozen || M.capturing) return;
+  let s = M.autoZoom ? M.state : (isFocused() ? 'listo' : 'buscando');
+  if (s === 'buscando' && afScanning()) s = 'enfocando';
+  if (s !== M.shown) setStatus(s);
+}
 
 let hintTimer = 0; const hintSeen = {};
 function hint(text, key, ms = 4000) {
@@ -760,14 +804,68 @@ function throttled(key, adv) {
   (async () => { while (s.next) { const a = s.next; s.next = null; try { await constrain(a); } catch (e) {} } s.busy = false; })();
 }
 
+/* ----- Abrir y cerrar el visor ----- */
 async function openScope(cam) {
-  if (!secureOk()) { insecureNotice(); window.scrollTo(0, 0); return; }
   M.cam = cam || null;
-  showScreen('scope');
-  ui.scopeError.hidden = true; ui.freeze.hidden = true; ui.bottom.hidden = false; ui.still.hidden = true; M.frozen = false;
-  applyOpts();
+  if (NATIVE_SCOPE) { openNative(); return; }
+  if (!secureOk()) { insecureNotice(); window.scrollTo(0, 0); return; }
+  enterScope();
   await startStream();
 }
+
+function enterScope() {
+  showScreen('scope');
+  ui.scopeError.hidden = true; ui.freeze.hidden = true; ui.bottom.hidden = false; hideStill();
+  M.frozen = false; M.capturing = false; M.digitalHinted = false;
+  applyOpts();
+  layoutWheel();
+  if (!M.raf) M.raf = requestAnimationFrame(loop);
+}
+function hideStill() { ui.still.hidden = true; ui.stillImg.hidden = true; ui.stillImg.removeAttribute('src'); }
+
+function openNative() {
+  M.native = true; M.ready = false; M.lastDigital = 0; M.sample = null; M.lastSampleT = 0;
+  document.documentElement.classList.add('native-scope');
+  enterScope();
+  setStatus('buscando');
+  ui.camName.textContent = (M.cam && M.cam.name) || 'Cámara trasera';
+  try { NATIVE.openScope(String((M.cam && M.cam.nativeId) || '')); } catch (e) { nativeFailed(); }
+}
+
+// Si la cámara no se puede abrir directamente, se usa la del navegador (modo básico).
+function nativeFailed() {
+  if (!M.native) return;
+  M.native = false; M.ready = false;
+  document.documentElement.classList.remove('native-scope');
+  try { NATIVE.closeScope(); } catch (e) {}
+  if (ui.scope.hidden) return;
+  applyOpts();
+  hint('No se ha podido abrir la cámara directamente; uso el modo básico.', null, 4000);
+  startStream();
+}
+
+window.__native = {
+  onOpened(info) {
+    if (!M.native || ui.scope.hidden || !info) return;
+    setupNativeCaps(info);
+    M.ready = true;
+    startAuto();
+    startHint();
+  },
+  onError(msg) {
+    if (!M.native) return;
+    if (M.ready) showScopeError('La cámara ha dejado de responder. Vuelve atrás y ábrela de nuevo.');
+    else nativeFailed();
+  },
+  onZoom(v) {
+    clearTimeout(M.hwTimer);
+    const n = +v;
+    // la imagen con el zoom nuevo tarda un par de fotogramas en llegar a la pantalla
+    setTimeout(() => { if (isFinite(n) && n > 0) M.hwApplied = n; M.hwPending = false; }, 40);
+  },
+  onSample(s) { if (M.native) M.sample = s; },
+  onCaptured(r) { onNativeCaptured(r); }
+};
 
 function stopStreamOnly() {
   M.sweepToken++; M.sweeping = false;
@@ -775,18 +873,29 @@ function stopStreamOnly() {
   M.stream = null; M.track = null; cq = Promise.resolve(); M.th = {};
   ui.video.srcObject = null;
   M.waiters.splice(0).forEach(w => w(0));
-  M.torchOn = false; M.torchUser = false; ui.btnTorch.classList.remove('is-on'); ui.btnTorch.setAttribute('aria-pressed', 'false');
+  M.torchOn = false; M.torchUser = false; setTorchButton(false);
 }
 
 function closeScope() {
+  if (M.native) {
+    try { NATIVE.closeScope(); } catch (e) {}
+    M.native = false; M.ready = false;
+    document.documentElement.classList.remove('native-scope');
+  }
   stopStreamOnly();
   cancelAnimationFrame(M.raf); M.raf = 0;
   releaseWakeLock();
-  ui.sheet.hidden = true; ui.btnSheet.setAttribute('aria-expanded', 'false');
+  WH.vel = 0; WH.drag = null;
+  ui.sheet.hidden = true; ui.btnSheet.setAttribute('aria-expanded', 'false'); ui.btnSheet.classList.remove('is-on');
   showScreen('diag');
 }
 
-function showScopeError(msg) { ui.scopeErrorText.textContent = msg; ui.scopeError.hidden = false; }
+function showScopeError(msg) { ui.scopeErrorText.textContent = msg; ui.scopeError.hidden = false; layoutWheel(); }
+
+function startHint() {
+  const cm = M.minFocusCm;
+  hint(`Acerca el móvil al objeto${cm ? ` (enfoca desde ≈ ${nf(cm, 0)} cm)` : ''}. Cuando esté nítido, ampliaré la imagen. Con la rueda de la derecha manejas tú el aumento.`, null, 6000);
+}
 
 async function startStream() {
   stopStreamOnly();
@@ -803,21 +912,22 @@ async function startStream() {
     try { stream = await navigator.mediaDevices.getUserMedia({ video: v, audio: false }); break; }
     catch (e) { err = e; if (e.name === 'NotAllowedError' || e.name === 'SecurityError') break; }
   }
-  if (ui.scope.hidden) { stopStream(stream); return; }
+  if (ui.scope.hidden || M.native) { stopStream(stream); return; }
   if (!stream) { showScopeError(errText(err)); return; }
   M.stream = stream; M.track = stream.getVideoTracks()[0];
   ui.video.srcObject = stream;
   try { await ui.video.play(); } catch (e) {}
   await new Promise(r => { if (ui.video.videoWidth) return r(); const t = setTimeout(r, 4000); ui.video.addEventListener('loadeddata', () => { clearTimeout(t); r(); }, { once: true }); });
   M.track.addEventListener('ended', () => { if (!ui.scope.hidden && !document.hidden && M.track) showScopeError('La cámara se ha desconectado.'); });
+  M.vw = ui.video.videoWidth; M.vh = ui.video.videoHeight;
   setupCaps();
   requestWakeLock();
   startAuto();
-  const cm = M.minFocusCm;
-  hint(`Acerca el móvil al objeto${cm ? ` (esta cámara enfoca desde ≈ ${nf(cm, 0)} cm)` : ''}. Cuando esté nítido, ampliaré la imagen.`, null, 5000);
+  startHint();
   if (!M.raf) M.raf = requestAnimationFrame(loop);
 }
 
+/* ----- Prestaciones de la cámara abierta ----- */
 function setupCaps() {
   const t = M.track;
   const c = (t.getCapabilities && t.getCapabilities()) || {};
@@ -838,53 +948,102 @@ function setupCaps() {
   M.hwMax = cap.zoom ? cap.zoom.max : 1;
   M.hwBase = cap.zoom ? clamp(typeof s.zoom === 'number' ? s.zoom : cap.zoom.min, cap.zoom.min, cap.zoom.max) : 1;
   M.hwApplied = M.hwBase; M.hwFail = 0; M.hwPending = false;
-  M.Zmin = cap.zoom ? Math.min(1, M.hwMin / M.hwBase) : 1;
-  const hwRange = cap.zoom ? M.hwMax / M.hwBase : 1;
-  M.Zmax = clamp(hwRange * 4, 8, 40);
-  const longSide = Math.max(ui.video.videoWidth, ui.video.videoHeight);
-  M.autoMax = cap.zoom ? clamp(hwRange * 1.25, 4, 12) : (longSide >= 3000 ? 8 : 5);
   M.minFocusCm = cap.focusDist && cap.focusDist.min < 2 ? cap.focusDist.min * 100 : (M.cam && M.cam.minFocusCm) || null;
 
   ui.camName.textContent = (M.cam && M.cam.name) || 'Cámara trasera';
-  ui.btnTorch.disabled = !cap.torch;
   ui.btnSwitch.disabled = D.ranked.length < 2;
   ui.focusField.hidden = !cap.focusDist;
-  ui.expField.hidden = !cap.exp;
-  if (cap.exp) {
-    ui.expRange.min = cap.exp.min; ui.expRange.max = cap.exp.max; ui.expRange.step = cap.exp.step || 0.1;
-    ui.expRange.value = typeof s.exposureCompensation === 'number' ? s.exposureCompensation : 0;
-    ui.expOut.textContent = signed(+ui.expRange.value);
-  }
-  M.torchOn = !!s.torch;
-  syncZoomRange();
+  setupExposure(cap.exp, typeof s.exposureCompensation === 'number' ? s.exposureCompensation : 0);
+  M.torchOn = !!s.torch; setTorchButton(M.torchOn);
+  finishCaps();
 }
 
-/* ----- Zoom ----- */
+function setupNativeCaps(info) {
+  const zMin = +info.zMin || 1, zMax = Math.max(zMin, +info.zMax || 1);
+  M.cap = {
+    zoom: zMax > zMin + 0.01 ? { min: zMin, max: zMax, step: 0.01 } : null,
+    focusModes: ['continuous'], focusDist: null, torch: !!info.flash,
+    exp: info.exp && info.exp.max > info.exp.min ? info.exp : null, poi: true
+  };
+  M.hwMin = zMin; M.hwMax = zMax; M.hwBase = clamp(1, zMin, zMax);
+  M.hwApplied = clamp(+info.zoom || M.hwBase, zMin, zMax); M.hwPending = false; M.lastDigital = 0;
+  M.vw = +info.pw || 1080; M.vh = +info.ph || 1440;
+  M.minFocusCm = +info.minFocusCm || (M.cam && M.cam.minFocusCm) || null;
+  M.fdCal = !!info.fdCal; M.fd = -1; M.af = 0;
+  M.nativeCams = Array.isArray(info.cams) ? info.cams : [];
+  M.nativeId = String(info.id || '');
+  const named = D.cams.find(c => c.nativeId === M.nativeId);
+  ui.camName.textContent = named ? named.name : (M.nativeId === '0' ? 'Trasera principal' : `Trasera nº ${M.nativeId}`);
+  ui.btnSwitch.disabled = M.nativeCams.length < 2;
+  ui.focusField.hidden = true;            // el enfoque lo lleva el teléfono
+  setupExposure(M.cap.exp, 0);
+  M.torchOn = false; setTorchButton(false);
+  finishCaps();
+  updateFocusInfo(true);
+}
+
+function finishCaps() {
+  const cap = M.cap;
+  M.Zmin = cap.zoom ? Math.min(1, M.hwMin / M.hwBase) : 1;
+  const hwRange = cap.zoom ? M.hwMax / M.hwBase : 1;
+  M.Zmax = clamp(Math.max(ZMAX_MIN, hwRange), ZMAX_MIN, 100);
+  const longSide = Math.max(M.vw, M.vh);
+  M.autoMax = cap.zoom ? clamp(hwRange * 1.25, 4, 12) : (longSide >= 3000 ? 8 : 5);
+  ui.btnTorch.disabled = !cap.torch;
+  syncZoomRange();
+  updateWheel();
+}
+
+function setupExposure(exp, cur) {
+  ui.expField.hidden = !exp;
+  if (!exp) return;
+  ui.expRange.min = exp.min; ui.expRange.max = exp.max; ui.expRange.step = exp.step || 0.1;
+  ui.expRange.value = cur || 0; ui.expOut.textContent = signed(+ui.expRange.value);
+}
+
+/* ----- Zoom: real de la cámara hasta donde llega y digital por encima ----- */
+const fmtZ = z => nf(z, z < 10 ? 1 : 0);
 function setZ(z, immediate) { M.Z = clamp(z, M.Zmin, M.Zmax); if (immediate) M.Zshow = M.Z; syncZoomRange(); }
 function zToRange(z) { return Math.round(1000 * Math.log(z / M.Zmin) / Math.log(M.Zmax / M.Zmin)); }
 function rangeToZ(v) { return M.Zmin * Math.exp(Math.log(M.Zmax / M.Zmin) * v / 1000); }
 function syncZoomRange() { if (document.activeElement !== ui.zoomRange) ui.zoomRange.value = zToRange(M.Z); }
+function isDigital() { return M.hwBase * M.Zshow > M.hwMax * 1.01; }
+
+function requestHwZoom(target) {
+  M.hwPending = true; M.hwLast = performance.now();
+  if (M.native) {
+    clearTimeout(M.hwTimer);
+    M.hwTimer = setTimeout(() => { M.hwPending = false; }, 900);   // por si la respuesta no llega
+    try { NATIVE.setZoom(target.toFixed(3)); } catch (e) { M.hwPending = false; }
+    return;
+  }
+  const st = M.cap.zoom.step, v = clamp(Math.round(target / st) * st, M.hwMin, M.hwMax);
+  const adv = { zoom: v }; if (M.torchOn) adv.torch = true;
+  constrain(adv).then(() => {
+    const s = (M.track && M.track.getSettings && M.track.getSettings()) || {};
+    M.hwApplied = typeof s.zoom === 'number' ? s.zoom : v; M.hwFail = 0;
+  }).catch(() => { if (++M.hwFail > 3) { M.cap.zoom = null; M.hwApplied = M.hwBase; finishCaps(); } })
+    .finally(() => { M.hwPending = false; });
+}
 
 function renderZoom() {
   const want = M.hwBase * M.Zshow;
-  if (M.cap.zoom && M.track) {
+  if (M.cap.zoom && (M.track || (M.native && M.ready))) {
     const target = clamp(want, M.hwMin, M.hwMax), now = performance.now();
-    if (!M.hwPending && Math.abs(target - M.hwApplied) / M.hwApplied > 0.02 && now - M.hwLast > 120) {
-      M.hwPending = true; M.hwLast = now;
-      const st = M.cap.zoom.step, v = clamp(Math.round(target / st) * st, M.hwMin, M.hwMax);
-      const adv = { zoom: v }; if (M.torchOn) adv.torch = true;
-      constrain(adv).then(() => {
-        const s = (M.track && M.track.getSettings && M.track.getSettings()) || {};
-        M.hwApplied = typeof s.zoom === 'number' ? s.zoom : v; M.hwFail = 0;
-      }).catch(() => { if (++M.hwFail > 3) { M.cap.zoom = null; M.hwApplied = M.hwBase; } })
-        .finally(() => { M.hwPending = false; });
-    }
+    if (!M.hwPending && Math.abs(target - M.hwApplied) / M.hwApplied > (M.native ? 0.01 : 0.02) && now - M.hwLast > (M.native ? 50 : 120)) requestHwZoom(target);
   }
   M.css = Math.max(1, want / M.hwApplied);
-  const tr = `scale(${M.css.toFixed(4)})`;
-  if (tr !== M.lastTr) { ui.video.style.transform = tr; M.lastTr = tr; }
-  const label = nf(M.Zshow, M.Zshow < 10 ? 1 : 0);
-  if (label !== M.lastMag) { ui.magVal.textContent = label; ui.zoomOut.textContent = label + '×'; M.lastMag = label; }
+  if (M.native) {
+    if (M.ready && Math.abs(M.css - M.lastDigital) / M.css > 0.002) {
+      M.lastDigital = M.css;
+      try { NATIVE.setDigital(M.css.toFixed(4)); } catch (e) {}
+    }
+  } else {
+    const tr = `scale(${M.css.toFixed(4)})`;
+    if (tr !== M.lastTr) { ui.video.style.transform = tr; M.lastTr = tr; }
+  }
+  const label = fmtZ(M.Zshow);
+  if (label !== M.lastMag) { ui.magVal.textContent = label; ui.zoomOut.textContent = label + '×'; M.lastMag = label; updateWheel(); }
 }
 
 /* ----- Análisis de imagen: nitidez (varianza del laplaciano), brillo y movimiento ----- */
@@ -895,45 +1054,53 @@ function visibleRect() {
   return { x: (vw - w) / 2, y: (vh - h) / 2, w, h, vw, vh };
 }
 
-function analyze() {
+function analyzeVideo() {
   const r = visibleRect();
   const side = Math.max(8, Math.min(r.w, r.h) * 0.5);
+  // Con mucho aumento se analizan los píxeles reales, sin ampliar el recorte.
+  const n = clamp(Math.round(side), 48, AN);
+  if (anCanvas.width !== n) { anCanvas.width = anCanvas.height = n; gray = new Float32Array(n * n); prevGray = null; }
   const sx = clamp(r.x + r.w * M.roi.x - side / 2, 0, r.vw - side), sy = clamp(r.y + r.h * M.roi.y - side / 2, 0, r.vh - side);
-  try { actx.drawImage(ui.video, sx, sy, side, side, 0, 0, AN, AN); } catch (e) { return false; }
-  const d = actx.getImageData(0, 0, AN, AN).data;
+  try { actx.drawImage(ui.video, sx, sy, side, side, 0, 0, n, n); } catch (e) { return null; }
+  const d = actx.getImageData(0, 0, n, n).data;
   let sum = 0;
   for (let i = 0, j = 0; i < gray.length; i++, j += 4) { const g = d[j] * 0.299 + d[j + 1] * 0.587 + d[j + 2] * 0.114; gray[i] = g; sum += g; }
-  let ls = 0, ls2 = 0, gs = 0, n = 0;
-  for (let y = 1; y < AN - 1; y++) {
-    const o = y * AN;
-    for (let x = 1; x < AN - 1; x++) {
-      const i = o + x, L = 4 * gray[i] - gray[i - 1] - gray[i + 1] - gray[i - AN] - gray[i + AN];
-      ls += L; ls2 += L * L; gs += Math.abs(gray[i + 1] - gray[i - 1]) + Math.abs(gray[i + AN] - gray[i - AN]); n++;
+  let ls = 0, ls2 = 0, gs = 0, c = 0;
+  for (let y = 1; y < n - 1; y++) {
+    const o = y * n;
+    for (let x = 1; x < n - 1; x++) {
+      const i = o + x, L = 4 * gray[i] - gray[i - 1] - gray[i + 1] - gray[i - n] - gray[i + n];
+      ls += L; ls2 += L * L; gs += Math.abs(gray[i + 1] - gray[i - 1]) + Math.abs(gray[i + n] - gray[i - n]); c++;
     }
   }
-  const varL = ls2 / n - (ls / n) * (ls / n);
-  const grad = gs / n / 4;   // gradiente medio por píxel
-  const zStable = Math.abs(M.Zshow - M.prevZ) / M.Zshow < 0.004 && !M.sweeping;
-  let motion = M.motion * 0.6;
-  // Movimiento ≈ desplazamiento aparente en píxeles: diferencia entre fotogramas dividida por el gradiente,
-  // para que una textura con mucho contraste no parezca movimiento.
-  if (prevGray && zStable) { let md = 0, c = 0; for (let i = 0; i < gray.length; i += 3) { md += Math.abs(gray[i] - prevGray[i]); c++; } motion = (md / c) / (grad + 1.5); }
+  const varL = ls2 / c - (ls / c) * (ls / c);
+  const grad = gs / c / 4;   // gradiente medio por píxel
+  // Movimiento ≈ desplazamiento aparente en píxeles: diferencia entre fotogramas dividida por el gradiente.
+  let motion = null;
+  if (prevGray) { let md = 0, k = 0; for (let i = 0; i < gray.length; i += 3) { md += Math.abs(gray[i] - prevGray[i]); k++; } motion = (md / k) / (grad + 1.5); }
   if (!prevGray) prevGray = new Float32Array(gray.length);
-  prevGray.set(gray); M.prevZ = M.Zshow;
+  prevGray.set(gray);
+  return { s: varL, b: sum / gray.length, m: motion };
+}
 
-  M.motion = motion; M.bright = sum / gray.length; M.sharp = varL;
+function ingest(smp) {
+  const zStable = Math.abs(M.Zshow - M.prevZ) / M.Zshow < 0.004 && !M.sweeping && !M.hwPending;
+  M.motion = (zStable && smp.m != null && isFinite(smp.m)) ? +smp.m : M.motion * 0.6;
+  M.prevZ = M.Zshow;
+  M.bright = +smp.b; M.sharp = +smp.s;
   M.emaPrev = M.ema;
-  M.ema = M.ema ? M.ema * 0.55 + varL * 0.45 : varL;
-  if (M.state === 'buscando' && M.motion > 4) M.peak = M.ema; else M.peak = Math.max(M.ema, M.peak * 0.993);
-  if (M.waiters.length) M.waiters.splice(0).forEach(w => w(varL));
-
+  M.ema = M.ema ? M.ema * 0.55 + M.sharp * 0.45 : M.sharp;
+  if (M.autoZoom && M.state === 'buscando' && M.motion > 4) M.peak = M.ema; else M.peak = Math.max(M.ema, M.peak * 0.993);
+  if (M.native) { M.af = smp.af | 0; M.fd = smp.fd == null ? -1 : +smp.fd; }
+  if (M.waiters.length) M.waiters.splice(0).forEach(w => w(M.sharp));
   ui.sharpFill.style.width = (clamp(Math.log10(1 + M.ema) / Math.log10(601), 0, 1) * 100).toFixed(1) + '%';
   ui.sharpFill.classList.toggle('ok', isFocused());
-  return true;
+  updateFocusInfo();
 }
-// Factor de zoom digital (CSS) a partir del cual cada píxel de la cámara ocupa más de 2,5 píxeles físicos de pantalla.
+
+// Factor de zoom digital a partir del cual cada píxel de la cámara ocupa más de 2,5 píxeles físicos de pantalla.
 function cssLimit() {
-  const v = ui.video, k = Math.max(ui.stage.clientWidth / v.videoWidth, ui.stage.clientHeight / v.videoHeight);
+  const k = Math.max(ui.stage.clientWidth / (M.vw || 1), ui.stage.clientHeight / (M.vh || 1));
   return Math.max(1, 2.5 / ((window.devicePixelRatio || 1) * k));
 }
 function isFocused() { return M.ema > FLOOR && M.ema >= 0.7 * M.peak; }
@@ -941,7 +1108,7 @@ function nextSample() { return new Promise(r => { const t = setTimeout(() => r(M
 async function samples(n) { let s = 0; for (let i = 0; i < n; i++) s += await nextSample(); return s / n; }
 
 /* ----- Enfoque ----- */
-function canSweep() { return !!M.cap.focusDist; }
+function canSweep() { return !M.native && !!M.cap.focusDist; }
 function snapFocus(d) { const f = M.cap.focusDist; let v = clamp(d, f.min, f.max); if (f.step > 0) v = clamp(Math.round(v / f.step) * f.step, f.min, f.max); return v; }
 function focusBounds() {
   const f = M.cap.focusDist, near = Math.max(f.min, 0.001);
@@ -952,24 +1119,33 @@ function focusBounds() {
 function rangeToFocus(v) { const { dNear, dFar } = focusBounds(); return 1 / (dNear - (dNear - dFar) * v / 1000); }
 function focusToRange(d) { const { dNear, dFar } = focusBounds(); return Math.round(clamp((dNear - 1 / d) / (dNear - dFar), 0, 1) * 1000); }
 
-function updateFocusUI() {
-  const manual = M.focusManual && M.focusDist != null;
-  ui.focusInfo.textContent = manual ? `Enfoque fijado a ≈ ${fmtDist(M.focusDist)}` : (M.cap.focusModes && M.cap.focusModes.includes('continuous') ? 'Autoenfoque continuo' : 'Enfoque del sistema');
+function updateFocusInfo(force) {
+  const now = performance.now();
+  if (!force && now - M.lastFocusTxt < 400) return;
+  M.lastFocusTxt = now;
+  const manual = !M.native && M.focusManual && M.focusDist != null;
+  let txt;
+  if (M.native) {
+    const d = M.fdCal && M.fd > 0 ? 1 / M.fd : null;
+    txt = 'Autoenfoque del teléfono' + (d && d < 2 ? ` · a ≈ ${fmtDist(d)}` : '');
+  } else if (manual) txt = `Enfoque fijado a ≈ ${fmtDist(M.focusDist)}`;
+  else txt = M.cap.focusModes && M.cap.focusModes.includes('continuous') ? 'Autoenfoque continuo' : 'Enfoque del sistema';
+  if (ui.focusInfo.textContent !== txt) ui.focusInfo.textContent = txt;
   ui.focusOut.textContent = manual ? fmtDist(M.focusDist) : 'auto';
   if (manual && document.activeElement !== ui.focusRange && M.cap.focusDist) ui.focusRange.value = focusToRange(M.focusDist);
 }
 function setFocusDistance(d) {
   const v = snapFocus(d);
-  M.focusManual = true; M.focusDist = v; updateFocusUI();
+  M.focusManual = true; M.focusDist = v; updateFocusInfo(true);
   return constrain({ focusMode: 'manual', focusDistance: v }).catch(() => {});
 }
 function setFocusContinuous() {
-  M.focusManual = false; M.focusDist = null; updateFocusUI();
-  if (M.cap.focusModes && M.cap.focusModes.includes('continuous')) return constrain({ focusMode: 'continuous' }).catch(() => {});
+  M.focusManual = false; M.focusDist = null; updateFocusInfo(true);
+  if (!M.native && M.cap.focusModes && M.cap.focusModes.includes('continuous')) return constrain({ focusMode: 'continuous' }).catch(() => {});
   return Promise.resolve();
 }
 
-// Barrido de enfoque: prueba distancias, mide la nitidez y se queda con la mejor.
+// Barrido de enfoque (navegador con enfoque manual): prueba distancias y se queda con la más nítida.
 async function sweepFocus() {
   if (M.sweeping || !canSweep() || M.frozen || !M.track) return;
   const token = ++M.sweepToken;
@@ -999,69 +1175,99 @@ async function sweepFocus() {
     M.peak = Math.max(best.v, M.peak * 0.5);
     if (best.i === 0 && best.v < FLOOR * 2) tooCloseHint();
   } finally {
-    if (token === M.sweepToken) { M.sweeping = false; if (!M.frozen) setStatus(M.auto ? M.state : 'manual'); }
+    if (token === M.sweepToken) { M.sweeping = false; M.shown = ''; updateStatus(); }
   }
+}
+
+// Ayuda al autoenfoque cuando la imagen sigue borrosa con el móvil quieto.
+function helpFocus() {
+  if (M.native) { try { NATIVE.focusAt(String(M.roi.x), String(M.roi.y)); } catch (e) {} }
+  else if (canSweep()) sweepFocus();
 }
 
 function tooCloseHint() {
   const cm = M.minFocusCm;
-  hint(cm ? `Se ve borroso: separa el móvil hasta unos ${nf(Math.max(cm, 2), 0)}–${nf(Math.max(cm, 2) * 1.6, 0)} cm. Más cerca no puede enfocar; el aumento lo pone la app.`
-          : 'Se ve borroso: separa un poco el móvil (unos 5–10 cm). Más cerca no puede enfocar; el aumento lo pone la app.', 'close', 6500);
+  hint(cm ? `Se ve borroso: separa el móvil hasta unos ${nf(Math.max(cm, 2), 0)}–${nf(Math.max(cm, 2) * 1.6, 0)} cm. Más cerca no puede enfocar; el aumento lo pone la rueda.`
+          : 'Se ve borroso: separa un poco el móvil (unos 5–10 cm). Más cerca no puede enfocar; el aumento lo pone la rueda.', 'close', 6500);
 }
 
 /* ----- Linterna ----- */
+function setTorchButton(on) { ui.btnTorch.classList.toggle('is-on', on); ui.btnTorch.setAttribute('aria-pressed', String(on)); }
 function setTorch(on) {
   if (!M.cap.torch) return;
-  constrain({ torch: on }).then(() => {
-    M.torchOn = on; ui.btnTorch.classList.toggle('is-on', on); ui.btnTorch.setAttribute('aria-pressed', String(on));
-  }).catch(() => {});
+  if (M.native) { try { NATIVE.setTorch(on ? '1' : '0'); } catch (e) {} M.torchOn = on; setTorchButton(on); return; }
+  constrain({ torch: on }).then(() => { M.torchOn = on; setTorchButton(on); }).catch(() => {});
 }
 
-/* ----- Automático: buscar → ampliar → mantener ----- */
+/* ----- Aumento automático: buscar → ampliar → mantener ----- */
 function setAutoButton(on) { ui.btnAuto.classList.toggle('is-on', on); ui.btnAuto.setAttribute('aria-pressed', String(on)); }
 function startAuto() {
-  M.auto = true; setAutoButton(true);
-  M.roi = { x: 0.5, y: 0.5 }; M.peak = 0; M.ema = 0; M.stable = 0; M.blurT = 0; M.lowT = 0; M.sweptHere = false; M.refocused = false;
-  setZ(1); setFocusContinuous(); setState('buscando');
+  M.autoZoom = true; setAutoButton(true);
+  M.roi = { x: 0.5, y: 0.5 }; M.peak = 0; M.ema = 0; M.stable = 0; M.lowT = 0; M.refocused = false; M.userFocus = false; M.holdRef = 0; M.refZ = 1;
+  setZ(1);
+  if (!M.native) setFocusContinuous();
+  M.shown = ''; setState('buscando');
 }
-function stopAuto() { if (!M.auto) return; M.auto = false; setAutoButton(false); setState('manual'); }
-function setManualZ(z, immediate) { stopAuto(); setZ(z, immediate); }
+function stopAutoZoom() {
+  if (!M.autoZoom) return;
+  M.autoZoom = false; setAutoButton(false); M.shown = ''; updateStatus();
+  hint('Aumento manual. El enfoque sigue siendo automático. Pulsa Auto si quieres que la app vuelva a ampliar sola.', 'manual', 4500);
+}
+function setManualZ(z, immediate) { stopAutoZoom(); setZ(z, immediate); }
 function reacquire() {
-  M.roi = { x: 0.5, y: 0.5 }; M.stable = 0; M.blurT = 0; M.lowT = 0; M.sweptHere = false; M.refocused = false; M.peak = 0;
-  setZ(1); if (M.focusManual) setFocusContinuous();
+  M.roi = { x: 0.5, y: 0.5 }; M.stable = 0; M.lowT = 0; M.refocused = false; M.peak = 0;
+  setZ(1); if (M.focusManual && !M.userFocus) setFocusContinuous();
   setState('buscando');
   hint('He perdido el enfoque. Vuelvo a buscar…', 'lost', 2500);
 }
 function finishAuto() {
-  setState('listo'); M.holdRef = M.ema; M.lowT = 0; M.refocused = false;
-  hint(`Aumento útil: ${nf(M.Z, 1)}×. Pellizca para ampliar más (con menos detalle) o toca para reenfocar.`, 'limit', 4500);
+  setState('listo'); M.lowT = 0; M.refocused = false; M.holdRef = M.ema; M.refZ = M.Z;
+  hint(`Aumento útil: ${nf(M.Z, 1)}×. Gira la rueda para ampliar más, hasta ${nf(M.Zmax, 0)}×.`, 'limit', 4500);
 }
 
 function autoStep(dt) {
+  torchStep(dt);
+  if (M.frozen || M.capturing) return;
+  focusStep(dt);
+  if (M.autoZoom && !M.sweeping) zoomStep(dt);
+  updateStatus();
+}
+
+function torchStep(dt) {
   if (M.cap.torch && !M.torchUser) {
     if (M.bright < 40 && !M.torchOn) { M.darkT += dt; if (M.darkT > 1.2) { M.darkT = 0; setTorch(true); hint('Poca luz: he encendido la linterna.', 'torch'); } }
     else M.darkT = 0;
   } else if (!M.cap.torch && M.bright < 30) hint('Poca luz. Ilumina el objeto de lado con otra lámpara.', 'dark');
+}
 
-  if (!M.auto || M.sweeping || M.frozen) return;
+// El enfoque es siempre automático, también con el aumento manual: lo hace el teléfono
+// y, si la imagen sigue borrosa con el móvil quieto, la app le ayuda.
+function focusStep(dt) {
+  if (M.sweeping || M.userFocus) return;
+  if (M.focusManual && M.motion > 3) setFocusContinuous();      // se ha movido: que el teléfono vuelva a enfocar
+  if (Math.abs(M.Z - M.refZ) / M.refZ > 0.15) { M.refZ = M.Z; M.holdRef = M.ema; if (!M.autoZoom) M.peak = M.ema; }   // con otro aumento cambia la escala de nitidez
+  M.holdRef = Math.max(M.ema, M.holdRef * 0.996);
+  const still = M.motion < 1.2;
+  const blurry = M.ema < FLOOR * 1.5 || M.ema < 0.35 * M.holdRef;
+  if (blurry) {
+    if (still && !afScanning()) {
+      M.lowT += dt;
+      if (M.lowT > 1.5 && !M.refocused) { M.refocused = true; helpFocus(); }
+      if (M.lowT > 6) { tooCloseHint(); M.lowT = 0; M.refocused = false; }
+    }
+  } else { M.lowT = Math.max(0, M.lowT - dt * 2); if (!M.lowT) M.refocused = false; }
+}
+
+function zoomStep(dt) {
   const still = M.motion < 1.2;
   const plateau = M.emaPrev > 0 && (M.ema - M.emaPrev) / M.ema < 0.08;
-  const focused = isFocused() && plateau;
-
+  const focused = isFocused() && plateau && !afScanning();
   if (M.state === 'buscando') {
     if (Math.abs(M.Z - M.Zshow) > 0.05) return;
-    if (M.focusManual && M.motion > 3) { setFocusContinuous(); M.sweptHere = false; }
     if (focused && still) {
-      M.stable += dt; M.blurT = 0;
+      M.stable += dt;
       if (M.stable > 0.6) { M.startSharp = M.ema; M.empty = 0; setState('aumentando'); }
-    } else {
-      M.stable = 0;
-      if (M.ema < FLOOR * 1.5 && still) {
-        M.blurT += dt;
-        if (M.blurT > 2.2 && canSweep() && !M.sweptHere) { M.sweptHere = true; sweepFocus(); }
-        if (M.blurT > 4.5) { tooCloseHint(); M.blurT = 0; M.sweptHere = false; }
-      } else M.blurT = Math.max(0, M.blurT - dt);
-    }
+    } else M.stable = 0;
   } else if (M.state === 'aumentando') {
     // Se para en el aumento útil: cuando ampliar más ya no muestra más detalle (la nitidez cae)
     // o cuando la imagen tendría que estirarse demasiado en la pantalla. Siempre llega al menos a 2×.
@@ -1072,12 +1278,7 @@ function autoStep(dt) {
     if (M.Z >= M.autoMax - 1e-3) { finishAuto(); return; }
     setZ(Math.min(M.autoMax, M.Z * (1 + 0.55 * dt)));
   } else if (M.state === 'listo') {
-    M.holdRef = Math.max(M.ema, M.holdRef * 0.996);
-    if (M.ema < 0.35 * M.holdRef) {
-      M.lowT += dt;
-      if (M.lowT > 1.2 && canSweep() && !M.refocused) { M.refocused = true; sweepFocus(); }
-      if (M.lowT > 3.5) reacquire();
-    } else { M.lowT = Math.max(0, M.lowT - dt * 2); if (!M.lowT) M.refocused = false; }
+    if (M.lowT > 3.5) reacquire();
   }
 }
 
@@ -1085,17 +1286,180 @@ function loop(ts) {
   M.raf = requestAnimationFrame(loop);
   if (ui.scope.hidden) return;
   const dtF = M.lastTs ? Math.min(0.1, (ts - M.lastTs) / 1000) : 0.016; M.lastTs = ts;
+  wheelFrame(dtF);
   M.Zshow += (M.Z - M.Zshow) * Math.min(1, dtF * 9);
   if (Math.abs(M.Z - M.Zshow) < 0.002) M.Zshow = M.Z;
   renderZoom();
-  if (!M.frozen && M.track && ts - M.lastAn > 110 && ui.video.readyState >= 2 && ui.video.videoWidth) {
+  if (M.frozen) return;
+  if (M.native) {
+    const s = M.sample;
+    if (M.ready && s && s.t !== M.lastSampleT) {
+      const dt = M.lastSampleT ? clamp((s.t - M.lastSampleT) / 1000, 0.02, 0.5) : 0.1;
+      M.lastSampleT = s.t;
+      ingest(s); autoStep(dt);
+    }
+  } else if (M.track && ts - M.lastAn > 110 && ui.video.readyState >= 2 && ui.video.videoWidth) {
     const dt = M.lastAn ? Math.min(0.5, (ts - M.lastAn) / 1000) : 0.11;
     M.lastAn = ts;
-    if (analyze()) autoStep(dt);
+    const s = analyzeVideo();
+    if (s) { ingest(s); autoStep(dt); }
   }
 }
 
-/* ----- Gestos: pellizcar para ampliar, tocar para enfocar ----- */
+/* ----- Rueda de aumento en el borde derecho ----- */
+const WH = { angle: 0, drag: null, vel: 0, tickA: 0, tickT: 0, tagTimer: 0, atLimit: false };
+const RIDGE = Math.PI / 24;   // separación entre estrías (7,5°)
+
+function layoutWheel() {
+  const show = !ui.scope.hidden && ui.sheet.hidden && !M.frozen && ui.scopeError.hidden;
+  ui.wheel.hidden = !show;
+  if (!ui.bottom.hidden) ui.scope.style.setProperty('--bottom-h', ui.bottom.offsetHeight + 'px');
+  if (show) sizeWheel();
+}
+function sizeWheel() {
+  const c = ui.wheelCanvas, dpr = Math.min(3, window.devicePixelRatio || 1);
+  const w = Math.round(ui.wheelBody.clientWidth * dpr), h = Math.round(ui.wheelBody.clientHeight * dpr);
+  if (w && h && (c.width !== w || c.height !== h)) { c.width = w; c.height = h; }
+  drawWheel();
+  updateWheel();
+}
+function drawWheel() {
+  const c = ui.wheelCanvas, w = c.width, h = c.height;
+  if (!w || !h || ui.wheel.hidden) return;
+  const ctx = c.getContext('2d');
+  // Cilindro visto de canto: oscuro en los extremos, más claro en el centro.
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#030506'); g.addColorStop(0.2, '#172024'); g.addColorStop(0.5, '#33424a'); g.addColorStop(0.8, '#172024'); g.addColorStop(1, '#030506');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  const R = h / 2 * 0.98;
+  const a0 = (((-WH.angle) % RIDGE) + RIDGE) % RIDGE;
+  for (let a = a0 - Math.PI / 2; a < Math.PI / 2; a += RIDGE) {
+    const k = Math.cos(a);
+    if (k < 0.05) continue;
+    const y = h / 2 + R * Math.sin(a);
+    const lw = Math.max(1, w * 0.075 * k);
+    ctx.fillStyle = `rgba(0,0,0,${(0.6 * k).toFixed(3)})`;
+    ctx.fillRect(w * 0.17, y + lw * 0.55, w * 0.66, lw * 0.85);
+    ctx.fillStyle = `rgba(226,234,231,${(0.16 + 0.62 * k).toFixed(3)})`;
+    ctx.fillRect(w * 0.17, y - lw / 2, w * 0.66, lw);
+  }
+  // Marcas de índice en el centro
+  const mh = Math.max(2, h * 0.007);
+  ctx.fillStyle = '#ffb547';
+  ctx.fillRect(0, h / 2 - mh / 2, w * 0.11, mh);
+  ctx.fillRect(w * 0.89, h / 2 - mh / 2, w * 0.11, mh);
+}
+function zFrac(z) { return clamp(Math.log(z / M.Zmin) / Math.log(M.Zmax / M.Zmin), 0, 1); }
+function updateWheel() {
+  const z = M.Zshow, label = fmtZ(z) + '×';
+  ui.wheelFill.style.height = (zFrac(z) * 100).toFixed(1) + '%';
+  const hwTop = M.cap && M.cap.zoom ? zFrac(M.hwMax / M.hwBase) : zFrac(1);
+  ui.wheel.style.setProperty('--hw', (hwTop * 100).toFixed(1) + '%');
+  ui.wheelBody.setAttribute('aria-valuemin', M.Zmin.toFixed(2));
+  ui.wheelBody.setAttribute('aria-valuemax', M.Zmax.toFixed(0));
+  ui.wheelBody.setAttribute('aria-valuenow', z.toFixed(2));
+  ui.wheelBody.setAttribute('aria-valuetext', label);
+  ui.wheelTagZ.textContent = label;
+  const digital = isDigital();
+  ui.wheelTagSub.textContent = z >= M.Zmax - 1e-3 ? 'máximo' : z <= M.Zmin + 1e-3 ? 'mínimo' : digital ? 'digital' : '';
+  if (digital && !M.digitalHinted && !ui.scope.hidden && !M.autoZoom) {
+    M.digitalHinted = true;
+    const hw = M.cap.zoom ? M.hwMax / M.hwBase : 1;
+    hint(hw > 1.05 ? `Hasta ${fmtZ(hw)}× el aumento es de la cámara. Por encima es digital: la imagen crece, pero no gana detalle.`
+                   : 'Este aumento es digital: la imagen crece, pero no gana detalle.', null, 5000);
+  }
+}
+function showWheelTag() { clearTimeout(WH.tagTimer); ui.wheelTag.classList.add('show'); }
+function hideWheelTagSoon() { clearTimeout(WH.tagTimer); WH.tagTimer = setTimeout(() => ui.wheelTag.classList.remove('show'), 1100); }
+
+function haptic(kind) {
+  const now = performance.now();
+  if (kind !== 'limit' && now - WH.tickT < 28) return;
+  WH.tickT = now;
+  try {
+    if (NATIVE && typeof NATIVE.haptic === 'function') NATIVE.haptic(kind || 'tick');
+    else if (navigator.vibrate) navigator.vibrate(kind === 'limit' ? [16, 40, 16] : 4);
+  } catch (e) {}
+}
+
+// dy > 0: el dedo sube = más aumento. Una pasada por toda la rueda multiplica el aumento por 3.
+function wheelZoomBy(dy) {
+  const R = Math.max(60, ui.wheelBody.clientHeight / 2);
+  const before = M.Z;
+  setManualZ(M.Z * Math.exp(dy * Math.log(3) / (2 * R)), true);
+  const moved = Math.abs(M.Z - before) > 1e-9;
+  if (moved) {
+    WH.atLimit = false;
+    WH.angle += dy / R;
+    if (Math.abs(WH.angle - WH.tickA) >= RIDGE) { WH.tickA = WH.angle; haptic('tick'); }
+  } else if (!WH.atLimit) { WH.atLimit = true; haptic('limit'); }
+  drawWheel(); updateWheel(); showWheelTag();
+  return moved;
+}
+function wheelFrame(dt) {
+  if (!WH.vel || WH.drag) return;
+  if (!wheelZoomBy(WH.vel * dt * 1000)) { WH.vel = 0; hideWheelTagSoon(); return; }
+  WH.vel *= Math.exp(-dt / 0.28);
+  if (Math.abs(WH.vel) < 0.04) { WH.vel = 0; hideWheelTagSoon(); }
+}
+function stepZoom(f) {
+  const before = M.Z;
+  setManualZ(M.Z * f, false);
+  if (Math.abs(M.Z - before) > 1e-9) { WH.angle += Math.sign(Math.log(f)) * RIDGE * 2; haptic('tick'); } else haptic('limit');
+  drawWheel(); showWheelTag(); hideWheelTagSoon();
+}
+
+ui.wheelBody.addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  try { ui.wheelBody.setPointerCapture(e.pointerId); } catch (err) {}
+  WH.vel = 0; WH.atLimit = false;
+  WH.drag = { id: e.pointerId, y: e.clientY, hist: [{ y: e.clientY, t: performance.now() }] };
+  showWheelTag();
+});
+ui.wheelBody.addEventListener('pointermove', e => {
+  const d = WH.drag; if (!d || e.pointerId !== d.id) return;
+  const dy = d.y - e.clientY; d.y = e.clientY;
+  const now = performance.now();
+  d.hist.push({ y: e.clientY, t: now });
+  while (d.hist.length > 2 && now - d.hist[0].t > 100) d.hist.shift();
+  if (dy) wheelZoomBy(dy);
+});
+const wheelRelease = e => {
+  const d = WH.drag; if (!d || e.pointerId !== d.id) return;
+  WH.drag = null;
+  const now = performance.now(), a = d.hist[0], b = d.hist[d.hist.length - 1];
+  if (e.type === 'pointerup' && now - b.t < 60 && b.t - a.t > 10) {
+    const v = (a.y - b.y) / (b.t - a.t);          // px/ms, positivo hacia arriba
+    if (Math.abs(v) > 0.3) WH.vel = clamp(v, -4, 4);
+  }
+  if (!WH.vel) hideWheelTagSoon();
+};
+ui.wheelBody.addEventListener('pointerup', wheelRelease);
+ui.wheelBody.addEventListener('pointercancel', wheelRelease);
+ui.wheelBody.addEventListener('wheel', e => { e.preventDefault(); e.stopPropagation(); wheelZoomBy(-e.deltaY * 0.4); hideWheelTagSoon(); }, { passive: false });
+ui.wheelBody.addEventListener('keydown', e => {
+  const k = e.key, f = { ArrowUp: 1.1, ArrowRight: 1.1, PageUp: 1.5, ArrowDown: 1 / 1.1, ArrowLeft: 1 / 1.1, PageDown: 1 / 1.5 }[k];
+  if (f) { e.preventDefault(); stepZoom(f); }
+  else if (k === 'Home') { e.preventDefault(); stepZoom(M.Zmin / M.Z); }
+  else if (k === 'End') { e.preventDefault(); stepZoom(M.Zmax / M.Z); }
+});
+function holdButton(btn, f) {
+  let t1 = 0, t2 = 0;
+  const stop = () => { clearTimeout(t1); clearInterval(t2); };
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); stop();
+    stepZoom(f);
+    t1 = setTimeout(() => { t2 = setInterval(() => stepZoom(Math.sqrt(f)), 90); }, 380);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => btn.addEventListener(ev, stop));
+  btn.addEventListener('click', e => { if (e.detail === 0) stepZoom(f); });   // teclado
+}
+holdButton(ui.wheelUp, 1.25);
+holdButton(ui.wheelDown, 1 / 1.25);
+if ('ResizeObserver' in window) new ResizeObserver(() => { if (!ui.scope.hidden) layoutWheel(); }).observe(ui.bottom);
+window.addEventListener('resize', () => { if (!ui.scope.hidden) layoutWheel(); });
+
+/* ----- Gestos en la imagen: pellizcar para ampliar, tocar para enfocar ----- */
 const pts = new Map(); let pinch = null, tap = null;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 ui.stage.addEventListener('pointerdown', e => {
@@ -1108,7 +1472,7 @@ ui.stage.addEventListener('pointerdown', e => {
 ui.stage.addEventListener('pointermove', e => {
   if (!pts.has(e.pointerId)) return;
   pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pinch && pts.size >= 2) { const [a, b] = [...pts.values()]; setManualZ(pinch.z * dist(a, b) / pinch.d, true); }
+  if (pinch && pts.size >= 2) { const [a, b] = [...pts.values()]; setManualZ(pinch.z * dist(a, b) / pinch.d, true); updateWheel(); }
   if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 12) tap = null;
 });
 const endPointer = e => {
@@ -1129,8 +1493,10 @@ function onTap(x, y) {
   ui.ring.classList.remove('show'); void ui.ring.offsetWidth; ui.ring.classList.add('show');
   setTimeout(() => ui.ring.classList.remove('show'), 900);
   M.roi = { x: clamp(nx, 0.15, 0.85), y: clamp(ny, 0.15, 0.85) };
-  M.peak = 0; M.lowT = 0;
-  if (canSweep()) { sweepFocus(); return; }
+  M.peak = 0; M.lowT = 0; M.refocused = false;
+  if (M.native) { try { NATIVE.focusAt(String(nx), String(ny)); } catch (e) {} return; }
+  if (canSweep()) { M.userFocus = false; sweepFocus(); return; }
+  const cont = !!(M.cap.focusModes && M.cap.focusModes.includes('continuous'));
   if (M.cap.poi && ui.video.videoWidth) {
     const r = visibleRect();
     const fm = M.cap.focusModes.includes('single-shot') ? 'single-shot' : 'continuous';
@@ -1139,18 +1505,35 @@ function onTap(x, y) {
     constrain({ focusMode: 'single-shot' }).catch(() => {});
   } else {
     hint('Este móvil enfoca por su cuenta. Mantén el pulso firme o apoya el móvil.', 'tapinfo');
+    return;
   }
+  // Después del enfoque puntual, vuelve el autoenfoque continuo.
+  if (cont) { clearTimeout(M.afBack); M.afBack = setTimeout(() => { if (!M.focusManual && M.track) constrain({ focusMode: 'continuous' }).catch(() => {}); }, 3000); }
 }
 
 /* ----- Botones del visor ----- */
 ui.btnBack.addEventListener('click', closeScope);
 ui.btnErrBack.addEventListener('click', closeScope);
-ui.btnAuto.addEventListener('click', () => { if (M.auto) stopAuto(); else { startAuto(); hint('Modo automático: acerca el móvil al objeto.', null, 2500); } });
+ui.btnAuto.addEventListener('click', () => { if (M.autoZoom) stopAutoZoom(); else { startAuto(); hint('Aumento automático: acerca el móvil al objeto.', null, 2500); } });
 ui.btnTorch.addEventListener('click', () => { M.torchUser = true; setTorch(!M.torchOn); });
 ui.btnSheet.addEventListener('click', () => {
   const open = ui.sheet.hidden; ui.sheet.hidden = !open; ui.btnSheet.setAttribute('aria-expanded', String(open)); ui.btnSheet.classList.toggle('is-on', open);
+  layoutWheel();
 });
 ui.btnSwitch.addEventListener('click', async () => {
+  if (M.native) {
+    const ids = M.nativeCams.map(c => String(c.id));
+    if (ids.length < 2) return;
+    const next = ids[(ids.indexOf(M.nativeId) + 1) % ids.length];
+    const webCam = D.cams.find(c => c.nativeId === next);
+    M.cam = webCam || { nativeId: next, name: next === '0' ? 'Trasera principal' : `Trasera nº ${next}` };
+    if (webCam) { store.set('mm.cam', webCam.id); updateOpenNote(); }
+    M.ready = false; M.lastDigital = 0; M.sample = null; setStatus('buscando');
+    ui.camName.textContent = M.cam.name;
+    try { NATIVE.openScope(next); } catch (e) {}
+    hint(`Cámara: ${M.cam.name}`, null, 2200);
+    return;
+  }
   if (D.ranked.length < 2) return;
   const i = D.ranked.findIndex(c => M.cam && c.id === M.cam.id);
   M.cam = D.ranked[(i + 1) % D.ranked.length];
@@ -1161,18 +1544,23 @@ ui.btnSwitch.addEventListener('click', async () => {
 ui.zoomRange.addEventListener('input', () => setManualZ(rangeToZ(+ui.zoomRange.value), true));
 ui.focusRange.addEventListener('input', () => {
   if (!canSweep()) return;
-  stopAuto(); M.sweepToken++; M.sweeping = false;
+  M.userFocus = true; M.sweepToken++; M.sweeping = false;
   const d = snapFocus(rangeToFocus(+ui.focusRange.value));
-  M.focusManual = true; M.focusDist = d; updateFocusUI();
+  M.focusManual = true; M.focusDist = d; updateFocusInfo(true);
   throttled('focus', { focusMode: 'manual', focusDistance: d });
 });
-ui.btnAF.addEventListener('click', () => { setFocusContinuous(); if (canSweep()) sweepFocus(); });
-ui.expRange.addEventListener('input', () => { const v = +ui.expRange.value; ui.expOut.textContent = signed(v); throttled('exp', { exposureCompensation: v }); });
+ui.btnAF.addEventListener('click', () => { M.userFocus = false; setFocusContinuous(); if (canSweep()) sweepFocus(); });
+ui.expRange.addEventListener('input', () => {
+  const v = +ui.expRange.value; ui.expOut.textContent = signed(v);
+  if (M.native) { try { NATIVE.setExposure(String(v)); } catch (e) {} }
+  else throttled('exp', { exposureCompensation: v });
+});
 
 function applyOpts() {
   ui.optOcular.checked = !!M.opts.ocular; ui.optRealce.checked = !!M.opts.realce; ui.optReticula.checked = !!M.opts.reticula;
   ui.ocular.hidden = !M.opts.ocular;
   ui.video.classList.toggle('realce', !!M.opts.realce);
+  ui.optRealce.parentElement.hidden = M.native;      // el realce solo se puede aplicar a la imagen del navegador
   ui.reticle.style.display = M.opts.reticula ? '' : 'none';
 }
 [['optOcular', 'ocular'], ['optRealce', 'realce'], ['optReticula', 'reticula']].forEach(([id, k]) => {
@@ -1181,8 +1569,24 @@ function applyOpts() {
 
 /* ----- Captura ----- */
 function stamp() { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
+function freezeUI(info, saved) {
+  M.frozen = true; M.sweepToken++; M.sweeping = false; WH.vel = 0;
+  ui.bottom.hidden = true; ui.freeze.hidden = false; setStatus('congelado');
+  ui.freezeInfo.textContent = info;
+  ui.btnSave.hidden = saved;
+  layoutWheel();
+}
 function capture() {
-  if (!ui.video.videoWidth || M.frozen) return;
+  if (M.frozen || M.capturing) return;
+  M.shotName = `microscopio-${stamp()}.jpg`;
+  if (M.native) {
+    if (!M.ready) return;
+    M.capturing = true; setStatus('guardando'); haptic('tick');
+    try { NATIVE.capture(M.shotName, M.css.toFixed(4)); }
+    catch (e) { M.capturing = false; M.shown = ''; hint('No se ha podido hacer la foto.', null, 3000); }
+    return;
+  }
+  if (!ui.video.videoWidth) return;
   const r = visibleRect();
   const f = clamp(1080 / Math.min(r.w, r.h), 1, 4);
   const W = Math.round(r.w * f), H = Math.round(r.h * f);
@@ -1192,19 +1596,26 @@ function capture() {
   if (M.opts.realce && 'filter' in ctx) ctx.filter = 'contrast(1.25) saturate(1.15) brightness(1.03)';
   ctx.drawImage(ui.video, r.x, r.y, r.w, r.h, 0, 0, W, H);
   ctx.filter = 'none';
-  M.frozen = true; M.sweepToken++; M.sweeping = false;
-  ui.still.hidden = false; ui.bottom.hidden = true; ui.freeze.hidden = false; setStatus('congelado');
-  ui.freezeInfo.textContent = `${nf(M.Zshow, 1)}× · ${W} × ${H} px`;
-  M.shotName = `microscopio-${stamp()}.jpg`;
+  ui.still.hidden = false;
+  freezeUI(`${nf(M.Zshow, 1)}× · ${W} × ${H} px`, false);
   M.blob = null; c.toBlob(b => { M.blob = b; }, 'image/jpeg', 0.92);
   let share = !!NATIVE;
   if (!share) try { share = !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'], { type: 'image/jpeg' })], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) {}
   ui.btnShare.hidden = !share;
 }
+function onNativeCaptured(r) {
+  M.capturing = false; M.shown = '';
+  if (ui.scope.hidden || !M.native) return;
+  if (!r || !r.ok) { hint('No se ha podido guardar la foto' + (r && r.error ? `: ${r.error}` : '.'), null, 4000); updateStatus(); return; }
+  ui.stillImg.src = r.url + '?t=' + Date.now(); ui.stillImg.hidden = false;
+  freezeUI(`${nf(M.Zshow, 1)}× · ${r.w} × ${r.h} px · guardada en Galería › Microscopio`, true);
+  ui.btnShare.hidden = false;
+}
 function getBlob() { return M.blob ? Promise.resolve(M.blob) : new Promise(r => ui.still.toBlob(r, 'image/jpeg', 0.92)); }
 function resume() {
-  M.frozen = false; ui.still.hidden = true; ui.freeze.hidden = true; ui.bottom.hidden = false;
-  M.peak = 0; M.lowT = 0; setStatus(M.auto ? M.state : 'manual');
+  M.frozen = false; hideStill(); ui.freeze.hidden = true; ui.bottom.hidden = false;
+  M.peak = 0; M.lowT = 0; M.shown = ''; updateStatus();
+  layoutWheel();
 }
 ui.btnShot.addEventListener('click', capture);
 ui.btnResume.addEventListener('click', resume);
@@ -1221,16 +1632,17 @@ ui.btnSave.addEventListener('click', async () => {
   hint(isIOS ? 'Descarga iniciada. En iPhone la encontrarás en Archivos › Descargas.' : 'Imagen guardada en Descargas.', null, 3000);
 });
 ui.btnShare.addEventListener('click', async () => {
+  if (M.native) { try { NATIVE.shareSaved(M.shotName); } catch (e) {} return; }
   if (NATIVE) { NATIVE.shareImage(ui.still.toDataURL('image/jpeg', 0.92), M.shotName); return; }
   const b = await getBlob(); if (!b) return;
   try { await navigator.share({ files: [new File([b], M.shotName, { type: 'image/jpeg' })], title: 'Microscopio Móvil' }); } catch (e) {}
 });
 
-/* ----- Pantalla encendida y segundo plano ----- */
+/* ----- Pantalla encendida y segundo plano (modo navegador; en el APK lo gestiona Android) ----- */
 async function requestWakeLock() { try { if ('wakeLock' in navigator && !document.hidden && !M.wake) { M.wake = await navigator.wakeLock.request('screen'); M.wake.addEventListener('release', () => { M.wake = null; }); } } catch (e) {} }
 function releaseWakeLock() { try { M.wake && M.wake.release(); } catch (e) {} M.wake = null; }
 document.addEventListener('visibilitychange', () => {
-  if (ui.scope.hidden) return;
+  if (ui.scope.hidden || M.native) return;
   if (document.hidden) { M.resumeOnShow = !!M.stream; stopStreamOnly(); }
   else if (M.resumeOnShow) { M.resumeOnShow = false; resume(); startStream(); }
 });

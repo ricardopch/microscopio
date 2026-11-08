@@ -30,7 +30,19 @@ jobs:
 
       - name: Compilar
         working-directory: android
-        run: gradle assembleRelease --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee ../build.log
+
+      - name: Guardar el registro si falla
+        if: failure()
+        run: |
+          mkdir -p /tmp/registro && cp build.log /tmp/registro/build.log || echo "sin registro" > /tmp/registro/build.log
+          cd /tmp/registro
+          git init -q && git checkout -q -b ci-logs
+          git add build.log
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "Registro de la compilación ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-logs
 
       - name: Preparar el archivo
         run: cp android/app/build/outputs/apk/release/app-release.apk Microscopio.apk

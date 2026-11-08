@@ -21,8 +21,8 @@ import java.util.Set;
  * Lee del sistema (Camera2) todas las cámaras del móvil: las públicas, las físicas que forman
  * una cámara lógica y las ocultas que responden a un identificador numérico.
  */
-final class CameraInfo {
-    private CameraInfo() {
+final class CameraSpecs {
+    private CameraSpecs() {
     }
 
     static JSONObject collect(Context ctx) {
